@@ -34,7 +34,7 @@ void main() {
   if (validator == null) {
     throw Exception('Could not find validator');
   }
-  group('email', () {
+  group('email validator', () {
     for (var email in testData) {
       test('Email: $email', () async {
         expect(validator(email), isTrue);
@@ -44,6 +44,20 @@ void main() {
     for (var email in failData) {
       test('Bad email: $email', () async {
         expect(validator(email), isFalse);
+      });
+    }
+  });
+
+  group('Email', () {
+    for (var email in testData) {
+      test('Email: $email', () async {
+        expect(Email.isValid(email), isTrue);
+      });
+    }
+
+    for (var email in failData) {
+      test('Bad email: $email', () async {
+        expect(Email.isValid(email), isFalse);
       });
     }
   });

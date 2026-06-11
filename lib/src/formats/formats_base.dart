@@ -13,17 +13,28 @@
 // limitations under the License.
 import 'dart:collection' show UnmodifiableMapView;
 
-import 'package:characters/characters.dart' show StringCharacters;
-
 import 'package:intl/intl.dart';
-import 'formats/duration.dart' show isValidDuration;
-
 import 'package:uuid/validation.dart';
 
-import 'formats/email.dart' show isValidEmail;
-import 'formats/hex.dart';
-import 'formats/isbn.dart' show isValidIsbn13;
-import 'formats/roman.dart';
+import 'digit_string.dart';
+import 'doi.dart';
+import 'duration.dart';
+import 'email.dart';
+import 'hex.dart';
+import 'isbn.dart';
+import 'lang.dart';
+import 'roman.dart';
+import 'urn.dart';
+
+export 'digit_string.dart';
+export 'doi.dart';
+export 'duration.dart';
+export 'email.dart';
+export 'hex.dart';
+export 'isbn.dart';
+export 'lang.dart';
+export 'roman.dart';
+export 'urn.dart';
 
 class StringValidator {
   final String name;
@@ -50,20 +61,32 @@ class StringFormatValidator implements StringValidatorService {
     'uri': StringValidator(
       'uri',
       'A string instance is valid against this attribute if it is a valid URI,'
-          ' according to RFC3986',
+          ' according to RFC 3986',
+      (value) => Urn.tryParse(value) != null ? true : false,
+    ),
+    'urn': StringValidator(
+      'urn',
+      'A string instance is valid against this attribute if it is a valid URN,'
+          ' according to RFC 8141',
       (value) => Uri.tryParse(value) != null ? true : false,
     ),
     'duration': StringValidator(
       'duration',
       'A string instance is valid against this attribute if it is a valid '
           'representation according to RFC3339',
-      isValidDuration,
+      Iso8601Duration.isValid,
     ),
     'email': StringValidator(
       'email',
       'A string instance is valid against this attribute if it is a valid '
           'representation of a pragmatic subset of RFC 5322',
-      isValidEmail,
+      Email.isValid,
+    ),
+    'lang': StringValidator(
+      'lamg',
+      'A string instance is valid against this attribute if it is a valid '
+          'language tag as defined in RFC 5646',
+      LanguageTag.isValid,
     ),
     'date-time': StringValidator(
       'date-time',
@@ -99,26 +122,31 @@ class StringFormatValidator implements StringValidatorService {
       'hex-string',
       'The string represents a valid '
           'series of characters for a hexadecimal number',
-      isValidHexString,
+      HexString.isValid,
     ),
     'digit-string': StringValidator(
       'digit-string',
       'The string represents a valid '
           'series of characters for a decimal number',
-      isValidDigitString,
+      DigitString.isValid,
     ),
     'roman-numeral': StringValidator(
       'roman-numeral',
       'The string represents a valid '
           'series of characters for a Roman numeral',
-      isValidRomanNumeral,
+      RomanNumerals.isValid,
     ),
     'isbn-13': StringValidator(
       'isbn-13',
       'The string represents a valid'
           ' International Standard Book Number (ISBN) if it meets the '
           'required check digit calculation',
-      isValidIsbn13,
+      Isbn13.isValid,
+    ),
+    'doi': StringValidator(
+      'doi',
+      'The string represents a valid DOI',
+      DOI.isValid,
     ),
   };
 }
@@ -143,17 +171,4 @@ bool isValidDate(String value) {
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';
   return reformatted == value;
-}
-
-/// A string that only contains decimal (0-9)digits.
-///
-/// Does not handle fingers, thumbs or toes.
-bool isValidDigitString(String value) {
-  for (var c in value.characters) {
-    var val = int.tryParse(c);
-    if (val == null) {
-      return false;
-    }
-  }
-  return true;
 }

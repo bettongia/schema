@@ -14,7 +14,7 @@
 
 import 'package:characters/characters.dart';
 
-import 'formats_base.dart';
+import 'formats/formats_base.dart';
 import 'schema_violation.dart';
 
 /// Internal representation of a parsed JSON Schema.

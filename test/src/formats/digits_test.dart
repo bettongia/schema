@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import 'package:betto_schema/schema.dart';
+import 'package:characters/characters.dart' show StringCharacters;
 import 'package:test/test.dart';
 
 void main() {
@@ -34,5 +35,49 @@ void main() {
         expect(validator(str), isFalse);
       });
     }
+  });
+  group('DigitString', () {
+    for (var str in ['9789295055124', '9789295055123']) {
+      test('DigitString is valid: $str', () async {
+        expect(DigitString.isValid(str), isTrue);
+      });
+    }
+
+    for (var str in ['9789X295055124', '97892950😀55123']) {
+      test('DigitString is not valid: $str', () async {
+        expect(DigitString.isValid(str), false);
+      });
+    }
+
+    test('concat', () async {
+      final s1 = DigitString.tryParse('10')!;
+      final s2 = DigitString.tryParse('85')!;
+
+      expect(DigitString.concat([s1]), equals(DigitString.tryParse('10')));
+      expect(
+        DigitString.concat([s1, s2]),
+        equals(DigitString.tryParse('1085')),
+      );
+    });
+
+    test('characters', () async {
+      final s1 = DigitString.tryParse('10')!;
+      final s2 = DigitString.tryParse('85')!;
+
+      expect(s1.characters, equals('10'.characters));
+      expect(s2.characters, equals('85'.characters));
+    });
+
+    test('equals and hash', () async {
+      final s1 = DigitString.tryParse('10');
+      final s2 = DigitString.tryParse('85');
+      final s3 = DigitString.tryParse('85');
+
+      expect(s1.hashCode != s2.hashCode, isTrue);
+      expect(s2.hashCode == s3.hashCode, isTrue);
+
+      expect(s1 != s2, isTrue);
+      expect(s2 == s3, isTrue);
+    });
   });
 }

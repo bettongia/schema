@@ -14,7 +14,7 @@
 
 import 'package:characters/characters.dart';
 
-import '../formats_base.dart';
+import 'digit_string.dart' show DigitString;
 
 /// An International Standard Book Number (ISBN).
 ///
@@ -23,27 +23,88 @@ import '../formats_base.dart';
 /// - [ISBN Users' Manual](https://www.isbn-international.org/content/isbn-users-manual/29)
 /// - [OCLC International Standard Book Number](https://www.oclc.org/bibformats/en/0xx/020.html)
 /// - [Administration of the ISBN System](https://isbn-information.com/administration-of-the-isbn-system.html)
-bool isValidIsbn13(String value) {
-  const weights = [1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3];
+class Isbn13 {
+  static final gsiPrefixes = const ['978', '979'];
 
-  if (value.characters.length != 13 || !isValidDigitString(value)) {
-    return false;
+  final DigitString isbn;
+
+  /// The GS1 (formerly EAN) Element (e.g., '978' or '979').
+  DigitString get prefix => isbn.substring(0, 3);
+
+  /// The ISBN 13 check digit.
+  DigitString get checkDigit => isbn.valueAt(isbn.length - 1);
+
+  Isbn13._(this.isbn);
+
+  @override
+  String toString() => isbn.toString();
+
+  static DigitString? _extractISBNString(String input) {
+    if (input.characters.length > 22) {
+      return null;
+    }
+
+    var str = DigitString.extract(input);
+
+    return str.length == 13 ? str : null;
   }
 
-  final checkDigit = int.tryParse(value.characters.elementAt(12));
+  static Isbn13? tryParse(String input) {
+    var isbn = _extractISBNString(input);
 
-  if (checkDigit == null) {
-    return false;
+    if (isbn == null) {
+      return null;
+    }
+
+    if (!_validatePrefix(isbn)) {
+      return null;
+    }
+
+    if (!validateChecksum(isbn)) {
+      return null;
+    }
+
+    return Isbn13._(isbn);
   }
 
-  var sumProd = 0;
-  for (var i = 0; i < 12; i++) {
-    final val = int.tryParse(value.characters.elementAt(i));
-    if (val == null) {
+  static int? calculateIsbn13CheckDigit(DigitString input) {
+    const weights = [1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3];
+
+    var inputList = input.intList;
+
+    if (input.length != 13) {
+      return null;
+    }
+
+    var sumProd = 0;
+    for (var i = 0; i < 12; i++) {
+      sumProd += inputList[i] * weights[i];
+    }
+    return (10 - sumProd % 10) % 10;
+  }
+
+  static bool _validatePrefix(DigitString isbn) {
+    final prefix = isbn.substring(0, 3).toString();
+
+    if (!gsiPrefixes.contains(prefix)) {
       return false;
     }
-    sumProd += val * weights[i];
+    return true;
   }
 
-  return (10 - sumProd % 10) % 10 == checkDigit;
+  /// If [input] is a valid ISBN, returns `true`.
+  ///
+  /// Refer to
+  /// [APPENDIX 1 Check digit calculation](https://www.isbn-international.org/content/isbn-users-manual/29)
+  static bool validateChecksum(DigitString isbn) {
+    if (isbn.length != 13) {
+      return false;
+    }
+
+    var checkDigit = isbn.valueAt(12);
+
+    return calculateIsbn13CheckDigit(isbn) == checkDigit.intValue;
+  }
+
+  static bool isValid(String value) => tryParse(value) != null;
 }

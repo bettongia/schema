@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import 'package:betto_schema/schema.dart' show HexString;
 import 'package:characters/characters.dart';
-import 'package:betto_schema/src/formats_base.dart' show StringFormatValidator;
+import 'package:betto_schema/src/formats/formats_base.dart'
+    show StringFormatValidator;
 import 'package:test/test.dart';
 
 void main() {
@@ -23,7 +25,7 @@ void main() {
   if (validator == null) {
     throw Exception('Could not find validator');
   }
-  group('HexString', () {
+  group('HexString validator', () {
     var s = '0123456789abcdefABCDEF';
     for (var ch in s.characters) {
       test('Is hex: $ch', () async {
@@ -45,6 +47,31 @@ void main() {
       var h = '0x$ch';
       test('Is not hex: $h', () async {
         expect(validator(h), isFalse);
+      });
+    }
+  });
+  group('HexString', () {
+    var s = '0123456789abcdefABCDEF';
+    for (var ch in s.characters) {
+      test('Is hex: $ch', () async {
+        expect(HexString.tryParse(ch), isNotNull);
+      });
+
+      var h = '0x$ch';
+      test('Is hex: $h', () async {
+        expect(HexString.tryParse(h), isNotNull);
+      });
+    }
+
+    var sNon = 'ghijklmnopqrstuvwxyz😀';
+    for (var ch in sNon.characters) {
+      test('Is not hex: $ch', () async {
+        expect(HexString.tryParse(ch), isNull);
+      });
+
+      var h = '0x$ch';
+      test('Is not hex: $h', () async {
+        expect(HexString.tryParse(h), isNull);
       });
     }
   });

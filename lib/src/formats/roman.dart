@@ -31,19 +31,78 @@ const romanDigits = <String, int>{
   'M': 1000,
 };
 
-/// Only a basic check of [input] is performed - namely that it is
-/// not empty and contains only valid Roman numerals (as defined in
-/// [romanDigits]).
-bool isValidRomanNumeral(String input) {
-  // Check for empty string
-  if (input.isEmpty) {
-    return false;
+/// Represents a basic Roman numeral-based number
+///
+/// This is a simplistic rendition of handling Roman numerals.
+///
+/// The apostrophus and the vinculum are not supported. Fractions are not
+/// supported.
+///
+/// See also: [Wikipedia: Roman numerals](https://en.wikipedia.org/wiki/Roman_numerals)
+class RomanNumerals {
+  final String value;
+
+  RomanNumerals._(this.value);
+
+  /// Creates a new instance
+  ///
+  /// Only a basic check of [input] is performed - namely that it is
+  /// not empty and contains only valid Roman numerals (as defined in
+  /// [romanDigits]).
+  static RomanNumerals? tryParse(String input) {
+    // Check for empty string
+    if (input.isEmpty) {
+      return null;
+    }
+
+    for (final c in input.characters) {
+      if (!romanDigits.containsKey(c)) {
+        return null;
+      }
+    }
+    return RomanNumerals._(input);
   }
 
-  for (final c in input.characters) {
-    if (!romanDigits.containsKey(c)) {
-      return false;
+  /// Attempts to evaluate a Roman numeral as an integer
+  ///
+  /// This function does allow for some variation in valid Roman numerals
+  /// (i.e. it will parse "IIII" as the number 4, even though the standard
+  /// Roman numeral for 4 is "IV").
+  ///
+  /// If the input string is empty, it will return a `Failure` with a
+  /// [RomanNumeralParseException].
+  ///
+  /// If the input string contains any characters that are not valid Roman
+  /// numerals, it will return a `Failure` with a [RomanNumeralParseException].
+  ///
+  /// If the input string is a valid Roman numeral, it will return a `Success`
+  /// containing a [RomanNumerals] object.
+  ///
+  /// Example:
+  ///
+  int? toInt() {
+    // go backwards through the digits
+    var total = 0;
+    var prevDigit = 0;
+    final reversed = value.characters.toList().reversed;
+
+    for (final c in reversed) {
+      var n = romanDigits[c];
+
+      if (n == null) {
+        return null;
+      }
+
+      if (n < prevDigit) {
+        // e.g. ix
+        total -= n;
+      } else {
+        total += n;
+      }
+      prevDigit = n;
     }
+    return total;
   }
-  return true;
+
+  static bool isValid(String value) => tryParse(value) != null;
 }
