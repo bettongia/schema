@@ -49,23 +49,23 @@ independently in any Dart project that needs structural document validation.
 ### Parsing and validating a document
 
 ```dart
-import 'package:betto_schema/schema.dart';
+void main() {
+  final rule = SchemaParser().parse({
+    'required': ['name', 'email'],
+    'properties': {
+      'name': {'type': 'string', 'minLength': 1},
+      'email': {'type': 'string', 'format': 'email'},
+      'age': {'type': 'integer', 'minimum': 0},
+    },
+    'additionalProperties': false,
+  });
 
-final rule = SchemaParser().parse({
-  'required': ['name', 'email'],
-  'properties': {
-    'name': {'type': 'string', 'minLength': 1},
-    'email': {'type': 'string', 'format': 'email'},
-    'age':  {'type': 'integer', 'minimum': 0},
-  },
-  'additionalProperties': false,
-});
+  final violations = rule.validate({'name': 'Alice'}, '');
+  // → [SchemaViolation(path: 'email', message: 'required field is missing')]
 
-final violations = rule.validate({'name': 'Alice'}, '');
-// → [SchemaViolation(path: 'email', message: 'required field is missing')]
-
-for (final v in violations) {
-  print(v); // "email: required field is missing"
+  for (final v in violations) {
+    print(v); // "email: required field is missing"
+  }
 }
 ```
 
@@ -91,17 +91,19 @@ print(emailFmt.function('not-an-email'));      // false
 Each violation carries a dot-path and a message:
 
 ```dart
-final v = SchemaViolation(path: 'address.city', message: 'required field is missing');
-print(v.path);    // address.city
-print(v.message); // required field is missing
-print(v);         // address.city: required field is missing
-```
+void main() {
+  final v = SchemaViolation(
+    path: 'address.city',
+    message: 'required field is missing',
+  );
+  print(v.path); // address.city
+  print(v.message); // required field is missing
+  print(v); // address.city: required field is missing
 
-Root-level violations use an empty `path`:
-
-```dart
-final root = SchemaViolation(path: '', message: 'expected type object');
-print(root); // expected type object
+  // Root-level violations use an empty `path`:
+  final root = SchemaViolation(path: '', message: 'expected type object');
+  print(root); // expected type object
+}
 ```
 
 ## Additional information
