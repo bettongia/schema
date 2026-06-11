@@ -14,7 +14,7 @@
 
 import 'dart:convert';
 
-import 'package:betto_schema/schema.dart';
+import 'package:betto_schema/betto_schema.dart';
 import 'package:test/test.dart';
 
 void main() {

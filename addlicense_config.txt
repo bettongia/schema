@@ -6,5 +6,5 @@
 --ignore="analysis_options.yaml"
 --ignore="pubspec.yaml"
 --ignore="third_party/**"
---ignore="lib/src/third_party/zstd.dart"
+--ignore=".github/**"
 .

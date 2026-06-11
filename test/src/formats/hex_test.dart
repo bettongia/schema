@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import 'package:betto_schema/schema.dart' show HexString;
+import 'package:betto_schema/betto_schema.dart' show HexString;
 import 'package:characters/characters.dart';
 import 'package:betto_schema/src/formats/formats_base.dart'
     show StringFormatValidator;

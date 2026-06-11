@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import 'package:betto_schema/schema.dart';
+import 'package:betto_schema/betto_schema.dart';
 import 'package:betto_schema/src/range.dart';
 
 import 'package:test/test.dart';
