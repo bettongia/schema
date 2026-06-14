@@ -68,7 +68,8 @@ test/
 example/                     # Standalone usage examples
 docs/
   plans/                     # Implementation plans (see docs/plans/README.md)
-  roadmap/                   # Roadmap items
+  roadmap/                   # Roadmap items (v0.md, v1.md, …)
+  reviews/                   # Code, security, and other review artefacts
   spec/                      # Technical specification (Pandoc Markdown)
 site/                        # Built HTML site (generated via make site)
 ```
