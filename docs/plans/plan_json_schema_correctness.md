@@ -1,6 +1,6 @@
 # JSON Schema: Correctness Fixes
 
-**Status**: Investigated
+**Status**: Implementing
 
 **PR link**: _pending_
 

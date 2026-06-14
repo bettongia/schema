@@ -8,4 +8,5 @@
 --ignore="third_party/**"
 --ignore=".github/**"
 --ignore="docs/template/**"
+--ignore="site/**"
 .
