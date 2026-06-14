@@ -1,4 +1,4 @@
-JSON Schema validation primitives.
+Schema validation primitives.
 
 `betto_schema` provides the low-level building blocks used by KMDB's collection
 schema feature (spec §25): individual validator functions, a sealed `SchemaRule`
