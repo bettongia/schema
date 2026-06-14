@@ -1,63 +1,93 @@
 .DEFAULT_GOAL := default
 
-SOURCE_FILES=lib/**/*.dart
-TEST_FILES=test/**/*.dart
-
-DOC_DIR=doc
-COVERAGE_DIR=coverage
-ADDLICENSE_CONFIG=addlicense_config.txt
-
 # BEGIN: Primary tasks
-default: prepare license_check format analyze test coverage doc
-.PHONY: all
 
-pre_commit: prepare format_check analyze license_check test
+default: clean prepare license_check format analyze test coverage site
+.PHONY: default
+
+pre_commit: format_check analyze license_check test
 .PHONY: pre_commit
 
-cicd: prepare format_check analyze license_check test
+cicd: default
 .PHONY: cicd
 
 # END: Primary tasks
 
-test:
-	dart test
-.PHONY: test
-
 format:
-	dart format lib/ test/ example/
+	dart format lib/ test/ hook/ tool/
 .PHONY: format
 
-## Check formatting without modifying files. Fails if any file is unformatted —
-## used by the pre-commit hook so the commit is blocked (rather than silently
-## reformatting already-staged files). Mirrors `format`'s scope exactly.
 format_check:
-	dart format --output=none --set-exit-if-changed lib test
+	dart format --output=none --set-exit-if-changed lib/ test/ hook/ tool/
 .PHONY: format_check
 
 analyze:
+	# flutter analyze
 	dart analyze
 .PHONY: analyze
 
-coverage:
-	dart run coverage:test_with_coverage --out $(COVERAGE_DIR)
-	genhtml $(COVERAGE_DIR)/lcov.info -o $(COVERAGE_DIR)/html
-.PHONY: coverage
+checks: coverage.log license_check
+.PHONY: checks
+
+test: test.log
+.PHONY: test
+
+test.log: lib/** test/**
+	dart test  | tee test.log
+
 
 license_check:
-	@echo "Checking for license headers..."
-	cat $(ADDLICENSE_CONFIG) | xargs addlicense --check
+	cat addlicense_config.txt | xargs addlicense --check
 
 license_add:
-	cat $(ADDLICENSE_CONFIG) | xargs addlicense
+	cat addlicense_config.txt | xargs addlicense
 
-doc:
-	dart doc --output=$(DOC_DIR) --validate-links .
-.PHONY: doc
+coverage: coverage.log
+.PHONY: coverage
+
+coverage.log: lib/** test/**
+	# flutter test --coverage
+	dart test --coverage-path=coverage/lcov.info
+	rm -rf site/coverage
+	mkdir -p site/coverage
+	genhtml coverage/lcov.info -o site/coverage
+
+# BEGIN: Documentation site tasks
+site/:
+	mkdir -p site
+
+site: styles site/index.html site/spec.html site/roadmap.html site/api/index.html coverage | site/
+.PHONY: site
+
+styles: site/styles/styles.css
+.PHONY: styles
+
+site/index.html:  docs/index.md docs/.pandoc docs/template/header.html | site/
+	pandoc --defaults="docs/.pandoc" docs/index.md README.md -o "site/index.html";
+
+site/spec.html:  docs/spec/*.md docs/template/header.html | site/
+	pandoc --defaults="docs/spec/.pandoc" --mathml docs/spec/*.md -o "site/spec.html";
+
+site/roadmap.html: docs/roadmap/*.md docs/.pandoc docs/template/header.html | site/
+	pandoc --defaults="docs/.pandoc" docs/roadmap/v*.md -o "site/roadmap.html";
+
+site/styles/styles.css: docs/styles/styles.css | site/
+	mkdir -p site/styles/
+	cp docs/styles/styles.css site/styles/styles.css
+
+site/api/index.html:
+	dart doc -o site/api/index.html
+
+# END: Documentation site tasks
 
 prepare:
+	dart pub global activate coverage
 	dart pub get
+.PHONY: prepare_dart
 
 clean:
-	rm -rf $(DOC_DIR)
-	rm -rf $(COVERAGE_DIR)
+	rm -rf site dist coverage .dart_tool
+	rm -f *.log
+	dart pub get
+
 .PHONY: clean

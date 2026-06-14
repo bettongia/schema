@@ -7,4 +7,5 @@
 --ignore="pubspec.yaml"
 --ignore="third_party/**"
 --ignore=".github/**"
+--ignore="docs/template/**"
 .

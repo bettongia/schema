@@ -8,3 +8,7 @@ pubspec.lock
 
 doc/
 coverage/
+.claude
+api-docs/
+site/
+*.log
