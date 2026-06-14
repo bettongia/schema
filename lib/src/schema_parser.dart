@@ -133,6 +133,54 @@ final class SchemaParser {
       );
     }
 
+    // const — value may be any JSON type including null; always active when key
+    // is present (even when the declared constant is null).
+    if (schema.containsKey('const')) {
+      rules.add(ConstRule(schema['const']));
+    }
+
+    // multipleOf — read as num? to support both integer and float divisors
+    // (e.g. 0.1). Only numeric values are validated; non-numerics are skipped
+    // by the rule itself.
+    final multipleOf = schema['multipleOf'] as num?;
+    if (multipleOf != null) {
+      rules.add(MultipleOfRule(multipleOf));
+    }
+
+    // uniqueItems — only activate when the value is exactly `true`. A value of
+    // `false` (or absence) means no uniqueness constraint, so the parser must
+    // guard here rather than relying solely on the rule.
+    if (schema['uniqueItems'] == true) {
+      rules.add(const UniqueItemsRule());
+    }
+
+    // minProperties / maxProperties — both read as int?; a single ObjectSizeRule
+    // is emitted when either key is present, mirroring NumericRule's pattern.
+    final minProperties = schema['minProperties'] as int?;
+    final maxProperties = schema['maxProperties'] as int?;
+    if (minProperties != null || maxProperties != null) {
+      rules.add(
+        ObjectSizeRule(
+          minProperties: minProperties,
+          maxProperties: maxProperties,
+        ),
+      );
+    }
+
+    // dependentRequired — the keyword value is a JSON object mapping trigger
+    // property names to arrays of required dependent property names.
+    final dependentRequiredRaw = schema['dependentRequired'];
+    if (dependentRequiredRaw is Map) {
+      // Cast each value to List<String>; ignore entries whose value is not a
+      // list (consistent with the silent-ignore policy for unknown keyword forms).
+      final dependencies = <String, List<String>>{
+        for (final entry in dependentRequiredRaw.entries)
+          if (entry.value is List)
+            entry.key as String: List<String>.from(entry.value as List),
+      };
+      rules.add(DependentRequiredRule(dependencies));
+    }
+
     return CompositeRule(rules);
   }
 }

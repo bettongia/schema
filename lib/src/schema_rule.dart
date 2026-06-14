@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import 'package:characters/characters.dart';
+import 'package:collection/collection.dart';
 
 import 'formats/formats_base.dart';
 import 'schema_violation.dart';
@@ -373,6 +374,210 @@ final class ArrayRule extends SchemaRule {
     if (items != null) {
       for (var i = 0; i < value.length; i++) {
         violations.addAll(items!.validate(value[i], '$path[$i]'));
+      }
+    }
+    return violations;
+  }
+}
+
+// ── Const ─────────────────────────────────────────────────────────────────────
+
+/// Validates that a value is exactly equal to the schema-declared constant.
+///
+/// Corresponds to `const` in JSON Schema spec §6.1.3. The comparison uses
+/// [DeepCollectionEquality] so that nested [List] and [Map] values are
+/// compared by structural value rather than by reference. Primitive values
+/// (numbers, strings, booleans, `null`) are also handled correctly.
+///
+/// Unlike `required`, the `const` keyword validates the *value* of the
+/// instance — presence is enforced separately via `required`. A `const: null`
+/// schema accepts only the value `null`.
+final class ConstRule extends SchemaRule {
+  /// Creates a rule that accepts only [constValue].
+  ///
+  /// [constValue] may be any JSON-representable type, including `null`.
+  const ConstRule(this.constValue);
+
+  /// The single accepted value.
+  final dynamic constValue;
+
+  // Deep equality is required for JSON value comparison — Dart's == operator
+  // compares List and Map by identity, not by structural value.
+  static const _deep = DeepCollectionEquality();
+
+  @override
+  List<SchemaViolation> validate(dynamic value, String path) {
+    if (!_deep.equals(constValue, value)) {
+      return [
+        SchemaViolation(path: path, message: 'must be equal to $constValue'),
+      ];
+    }
+    return [];
+  }
+}
+
+// ── MultipleOf ───────────────────────────────────────────────────────────────
+
+/// Validates that a numeric value is a multiple of the schema-declared divisor.
+///
+/// Corresponds to `multipleOf` in JSON Schema spec §6.2.1. Non-numeric
+/// instances are silently skipped. Uses a floating-point-safe algorithm:
+/// divides the value by the divisor and checks whether the quotient is within
+/// an epsilon of a whole number. The naive `value % divisor == 0` check fails
+/// for decimal divisors (e.g. `0.3 % 0.1 ≠ 0` in IEEE-754 arithmetic).
+final class MultipleOfRule extends SchemaRule {
+  /// Creates a rule that requires values to be a multiple of [divisor].
+  ///
+  /// [divisor] must be strictly greater than zero per the JSON Schema spec.
+  /// A [divisor] of zero acts as a schema-error guard: validation always fails
+  /// for any numeric value (spec §6.2.1 disallows zero divisors).
+  const MultipleOfRule(this.divisor);
+
+  /// The required divisor.
+  final num divisor;
+
+  // Tolerance used when checking whether the quotient is a whole number.
+  // 1e-10 is small enough to avoid false positives for common decimal values
+  // while remaining robust to typical IEEE-754 rounding errors.
+  static const double _epsilon = 1e-10;
+
+  @override
+  List<SchemaViolation> validate(dynamic value, String path) {
+    // Applies only to numbers; other types are silently skipped.
+    if (value is! num) return [];
+    if (divisor == 0) {
+      return [
+        SchemaViolation(path: path, message: 'multipleOf divisor must be > 0'),
+      ];
+    }
+    // Compute the quotient and check that its fractional part is negligibly
+    // small, guarding against IEEE-754 rounding in decimal arithmetic.
+    final quotient = value / divisor;
+    if ((quotient - quotient.roundToDouble()).abs() >= _epsilon) {
+      return [
+        SchemaViolation(path: path, message: 'must be a multiple of $divisor'),
+      ];
+    }
+    return [];
+  }
+}
+
+// ── UniqueItems ───────────────────────────────────────────────────────────────
+
+/// Validates that all elements in an array are pairwise distinct.
+///
+/// Corresponds to `uniqueItems: true` in JSON Schema spec §6.4.3. When
+/// `uniqueItems` is `false` (or absent) no validation is performed.
+/// Non-array instances are silently skipped.
+///
+/// Uses an O(n²) pairwise [DeepCollectionEquality] comparison so that nested
+/// [List] and [Map] elements are compared by structural value rather than by
+/// reference. A plain `toSet()` check would fail to detect duplicate nested
+/// objects.
+final class UniqueItemsRule extends SchemaRule {
+  const UniqueItemsRule();
+
+  static const _deep = DeepCollectionEquality();
+
+  @override
+  List<SchemaViolation> validate(dynamic value, String path) {
+    // Applies only to arrays; other types are silently skipped.
+    if (value is! List) return [];
+    // Pairwise O(n²) deep-equality check. An empty list or single-element
+    // list is vacuously unique.
+    for (var i = 0; i < value.length; i++) {
+      for (var j = i + 1; j < value.length; j++) {
+        if (_deep.equals(value[i], value[j])) {
+          return [SchemaViolation(path: path, message: 'items must be unique')];
+        }
+      }
+    }
+    return [];
+  }
+}
+
+// ── ObjectSize ────────────────────────────────────────────────────────────────
+
+/// Validates the number of properties in an object (map).
+///
+/// Covers both `minProperties` (spec §6.5.2) and `maxProperties` (spec §6.5.1).
+/// Non-map instances are silently skipped. Either bound may be `null` to
+/// indicate no constraint in that direction.
+final class ObjectSizeRule extends SchemaRule {
+  const ObjectSizeRule({this.minProperties, this.maxProperties});
+
+  /// Inclusive minimum number of properties, or `null` for no lower bound.
+  final int? minProperties;
+
+  /// Inclusive maximum number of properties, or `null` for no upper bound.
+  final int? maxProperties;
+
+  @override
+  List<SchemaViolation> validate(dynamic value, String path) {
+    // Applies only to objects (maps); other types are silently skipped.
+    if (value is! Map) return [];
+    final violations = <SchemaViolation>[];
+    if (minProperties != null && value.length < minProperties!) {
+      violations.add(
+        SchemaViolation(
+          path: path,
+          message: 'must have at least $minProperties properties',
+        ),
+      );
+    }
+    if (maxProperties != null && value.length > maxProperties!) {
+      violations.add(
+        SchemaViolation(
+          path: path,
+          message: 'must have at most $maxProperties properties',
+        ),
+      );
+    }
+    return violations;
+  }
+}
+
+// ── DependentRequired ─────────────────────────────────────────────────────────
+
+/// Validates conditional property dependencies in an object (map).
+///
+/// Corresponds to `dependentRequired` in JSON Schema spec §6.5.4. Each entry
+/// in [dependencies] maps a trigger property name to a list of property names
+/// that must also be present whenever the trigger is present. If the trigger
+/// is absent, no validation is performed for that entry.
+///
+/// Non-map instances are silently skipped. One [SchemaViolation] is emitted
+/// per missing dependent property, with the path pointing at the missing
+/// property name (consistent with [RequiredRule]).
+final class DependentRequiredRule extends SchemaRule {
+  /// Creates a rule from a dependency map.
+  ///
+  /// [dependencies] maps each trigger property name to the list of property
+  /// names that must be present when the trigger is present.
+  const DependentRequiredRule(this.dependencies);
+
+  /// The dependency map: trigger → required dependents.
+  final Map<String, List<String>> dependencies;
+
+  @override
+  List<SchemaViolation> validate(dynamic value, String path) {
+    // Applies only to objects (maps); other types are silently skipped.
+    if (value is! Map) return [];
+    final violations = <SchemaViolation>[];
+    for (final MapEntry(:key, value: dependents) in dependencies.entries) {
+      // Only validate when the trigger property is present.
+      if (!value.containsKey(key)) continue;
+      for (final dependent in dependents) {
+        if (!value.containsKey(dependent)) {
+          // Emit one violation per missing dependent, with the path pointing
+          // at the missing property — consistent with RequiredRule path format.
+          violations.add(
+            SchemaViolation(
+              path: path.isEmpty ? dependent : '$path.$dependent',
+              message: 'required field is missing',
+            ),
+          );
+        }
       }
     }
     return violations;

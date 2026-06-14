@@ -80,6 +80,90 @@ using `^` and `$` (e.g. `{"pattern": "^foo$"}`).
 An empty pattern (`""`) always matches every string (correct per spec: an
 empty regex has at least one match at position 0 in any string).
 
+## `const` (§6.1.3)
+
+The `const` keyword constrains the instance to be equal to the declared
+constant value. The value may be any JSON type, including `null`.
+
+The comparison uses structural (deep) equality. Nested `List` and `Map` values
+are compared element-by-element rather than by object identity. Primitive values
+(`string`, `number`, `boolean`, `null`) are handled correctly by deep equality
+as well.
+
+`const` validates the **value** of the instance, not its presence. Use
+`required` to enforce that a key exists; use `const` to enforce what its value
+must be. A schema `{"const": null}` accepts the value `null` and rejects any
+non-null value.
+
+## `multipleOf` (§6.2.1)
+
+The `multipleOf` keyword validates that a numeric instance is an exact multiple
+of the declared divisor. Non-numeric instances are silently skipped (no
+violation).
+
+The keyword value must be a number strictly greater than zero. A divisor of
+zero is a schema-error guard: the rule produces a violation for any numeric
+value rather than throwing a Dart exception.
+
+### Floating-point safety
+
+The naive check `instance % divisor == 0` is numerically unsafe for decimal
+divisors because of IEEE-754 rounding. For example, `0.3 % 0.1` is
+approximately `2.77e-17`, not `0`. The implementation uses a quotient-based
+check: `(instance / divisor) - round(instance / divisor)` is tested against an
+epsilon of `1e-10`. This correctly identifies `0.3` as a multiple of `0.1`.
+
+## `uniqueItems` (§6.4.3)
+
+The `uniqueItems` keyword validates that all elements in an array are pairwise
+distinct. It activates only when the keyword value is exactly `true`; a value
+of `false` (or absence) means no uniqueness constraint is applied. Non-array
+instances are silently skipped.
+
+Uniqueness uses structural (deep) equality — the same `DeepCollectionEquality`
+used for `const`. A naïve `toSet()` check fails to detect duplicate nested
+objects or arrays because Dart compares `Map` and `List` by object identity in
+the default equality. The implementation uses an O(n²) pairwise comparison,
+which is simple and correct for the expected sizes of JSON Schema instances.
+
+Empty and single-element arrays are vacuously unique.
+
+## `minProperties` (§6.5.2)
+
+The `minProperties` keyword validates that an object (map) has at least the
+specified number of properties. Non-object instances are silently skipped. The
+bound is inclusive: `{"minProperties": 2}` accepts objects with exactly two
+properties. An empty object satisfies `{"minProperties": 0}`.
+
+## `maxProperties` (§6.5.1)
+
+The `maxProperties` keyword validates that an object (map) has at most the
+specified number of properties. Non-object instances are silently skipped. The
+bound is inclusive: `{"maxProperties": 3}` accepts objects with one, two, or
+three properties.
+
+When both `minProperties` and `maxProperties` are declared, a single
+`ObjectSizeRule` enforces both bounds and collects all violations in one pass.
+
+## `dependentRequired` (§6.5.4)
+
+The `dependentRequired` keyword declares conditional property dependencies. The
+keyword value is an object where each key is a **trigger** property name that
+maps to an array of **dependent** property names.
+
+For each trigger key that is present in the instance, all listed dependent
+property names must also be present. If the trigger key is absent, no
+validation is performed for that entry (the dependency is not activated).
+
+One `SchemaViolation` is emitted per missing dependent property. The violation
+path follows the same format as `required`: the path is the dot-notation path
+to the object, followed by the missing property name
+(e.g. `"payment.billingAddress"`). The violation message is
+`"required field is missing"`, consistent with `RequiredRule`.
+
+An empty dependent list (`"trigger": []`) always passes when the trigger is
+present.
+
 ## `format` — `uri` and `urn`
 
 ### `uri`

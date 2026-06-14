@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import 'dart:collection';
-
 import 'package:characters/characters.dart';
 import 'package:collection/collection.dart';
 
@@ -63,29 +61,39 @@ class EnumValidator<T> implements Validator<T> {
   };
 }
 
-/// Validates that the input is equal to the specified value
+/// Validates that the input is equal to the specified value.
+///
+/// Uses [DeepCollectionEquality] for the comparison so that nested [List] and
+/// [Map] values are compared by structural value rather than by reference.
+/// Primitive values (numbers, strings, booleans, `null`) are handled correctly
+/// by deep equality as well.
 class ConstValidator<T> implements Validator<T> {
-  /// The single allowed value
+  /// The single allowed value.
   T value;
 
   @override
   final String name = 'const';
 
+  // Deep equality is required for JSON value comparison — Dart's == operator
+  // compares List and Map by identity, not by structural value, so plain ==
+  // would produce false negatives for nested objects and arrays.
+  static const _deep = DeepCollectionEquality();
+
   ConstValidator(this.value);
 
   @override
-  bool call(T input) => value == input;
+  bool call(T input) => _deep.equals(value, input);
 
   @override
   bool operator ==(Object other) {
     if (other is ConstValidator<T>) {
-      return other.value == value;
+      return _deep.equals(other.value, value);
     }
     return false;
   }
 
   @override
-  int get hashCode => Object.hash(name, value);
+  int get hashCode => Object.hash(name, _deep.hash(value));
 
   Map<String, dynamic> toMap() => {'name': name, 'value': value};
 }
@@ -219,22 +227,38 @@ class ExclusiveMinimum<T extends num> implements Validator<T> {
 }
 
 /// Validates that a value is a multiple of the specified [divisor].
+///
+/// Uses a floating-point-safe algorithm: divides [input] by [divisor] and
+/// checks whether the quotient is within [_epsilon] of a whole number. The
+/// naive `input % divisor == 0` check fails for decimal divisors such as
+/// `0.1` due to IEEE-754 rounding (e.g. `0.3 % 0.1` is not exactly `0`).
 class MultipleOf<T extends num> implements Validator<T> {
   final T divisor;
 
   @override
   final String name = 'multipleOf';
 
+  // Tolerance used when checking whether the quotient is a whole number.
+  // 1e-10 is small enough to avoid false positives for common decimal values
+  // while remaining robust to typical IEEE-754 rounding errors.
+  static const double _epsilon = 1e-10;
+
   MultipleOf(this.divisor);
 
   @override
   bool call(num input) => multipleOf(input, divisor);
 
+  /// Returns `true` if [input] is a multiple of [divisor].
+  ///
+  /// A [divisor] of zero is treated as a schema-error guard: the spec requires
+  /// `multipleOf` values to be strictly greater than zero, so a zero divisor
+  /// returns `false` rather than throwing.
   bool multipleOf(num input, num divisor) {
-    if (divisor == 0) {
-      return false;
-    }
-    return input % divisor == 0;
+    if (divisor == 0) return false;
+    // Compute the quotient and check that its fractional part is negligibly
+    // small, guarding against IEEE-754 rounding in decimal arithmetic.
+    final quotient = input / divisor;
+    return (quotient - quotient.roundToDouble()).abs() < _epsilon;
   }
 
   @override
@@ -507,21 +531,39 @@ class ItemCount<T> implements Validator<Iterable<T>> {
   Map<String, dynamic> toMap() => {'name': name, 'value': count};
 }
 
-/// Validates that a list has a unique set of items
+/// Validates that a list has a unique set of items.
+///
+/// Uses an O(n²) pairwise [DeepCollectionEquality] comparison so that nested
+/// [List] and [Map] elements are compared by structural value rather than by
+/// reference. A `LinkedHashSet` with a deep-equality hasher could give O(n)
+/// average-case but would require a matching deep hash function; the pairwise
+/// approach is simpler and correct for the expected list sizes in JSON Schema
+/// validation.
 class UniqueItems<T> implements Validator<Iterable<T>> {
   @override
   final String name = 'uniqueItems';
 
+  static const _deep = DeepCollectionEquality();
+
   @override
   bool call(Iterable input) => uniqueItems(input);
 
-  bool uniqueItems(Iterable input) => input.length == input.toSet().length;
+  /// Returns `true` if all elements are pairwise distinct under deep equality.
+  bool uniqueItems(Iterable input) {
+    final items = input.toList();
+    for (var i = 0; i < items.length; i++) {
+      for (var j = i + 1; j < items.length; j++) {
+        if (_deep.equals(items[i], items[j])) return false;
+      }
+    }
+    return true;
+  }
 
   @override
   bool operator ==(Object other) => other is UniqueItems;
 
   @override
-  int get hashCode => name.hashCode; // I'm not convinced
+  int get hashCode => name.hashCode;
 
   Map<String, dynamic> toMap() => {'name': name};
 }
