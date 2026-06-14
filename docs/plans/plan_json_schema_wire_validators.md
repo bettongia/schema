@@ -1,6 +1,6 @@
 # JSON Schema: Wire Existing Validators into the Rule Layer
 
-**Status**: Investigated
+**Status**: Implementing
 
 **PR link**: _pending_
 
