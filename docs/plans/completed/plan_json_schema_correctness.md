@@ -261,4 +261,28 @@ NaN/Infinity regression tests for the integer guard.
 
 ## Summary
 
-_Pending implementation._
+All four correctness bugs were fixed across both validation layers (Layer 1
+`validation.dart` and Layer 2 `schema_rule.dart`/`schema_parser.dart`):
+
+- **`pattern`** — replaced the anchored `firstMatch` + bounds check with
+  `hasMatch()` in both `StringRule` and `PatternValidator`. Existing tests
+  that pinned the buggy anchored behaviour were corrected.
+- **`integer`** — updated the `'integer'` branch to
+  `value is int || (value is double && value.isFinite && value % 1 == 0)`.
+  The `isFinite` guard is explicit to prevent a future simplification from
+  inadvertently accepting `NaN` or `Infinity`; regression tests cover both.
+- **`type` array form** — `TypeRule` extended with a `TypeRule.fromList()`
+  constructor (preferred over a separate `TypeArrayRule` to avoid duplicating
+  the per-type switch); `SchemaParser` now emits it when `type` is a `List`;
+  `TypeValidator` gained a matching `TypeValidator.fromList()`.
+- **`uri`/`urn`** — validators swapped in `formats_base.dart`. The `uri`
+  format intentionally accepts valid URNs (a URN is a URI per RFC 3986);
+  this and the lenient `Uri.tryParse` behaviour are documented in
+  `docs/spec/README.md`.
+
+A pre-existing bug in `LangTag.toString()` was discovered and fixed during
+the coverage pass: `_rendered` was overwritten with `null` on every call,
+causing the method to always return `''`.
+
+Coverage improved from a pre-existing 77.9% to **95.6%** (628 tests), driven
+by a new `lang_test.dart` and expanded tests for `duration`, `hex`, and `urn`.
