@@ -17,6 +17,67 @@ import 'package:collection/collection.dart';
 import 'package:test/test.dart';
 
 void main() {
+  // ── StringFormatValidator: service methods ────────────────────────────────
+
+  group('StringFormatValidator service', () {
+    test('supportedValidators contains expected keys', () {
+      final validators = StringFormatValidator().supportedValidators;
+      expect(validators, contains('uri'));
+      expect(validators, contains('urn'));
+      expect(validators, contains('email'));
+      expect(validators, contains('uuid'));
+      expect(validators, contains('date'));
+      expect(validators, contains('date-time'));
+    });
+
+    test('getValidator returns null for unknown format', () {
+      expect(StringFormatValidator().getValidator('no-such-format'), isNull);
+    });
+  });
+
+  // ── StringFormatValidator: 'uri' and 'urn' ──────────────────────────────────
+
+  group('StringFormatValidator uri', () {
+    final validator = StringFormatValidator().getValidator('uri')!.function;
+
+    test('accepts a plain http URL', () {
+      expect(validator('https://example.com'), isTrue);
+      expect(validator('http://example.com/path?q=1#frag'), isTrue);
+    });
+
+    // A URN is a valid URI (urn is a registered URI scheme per RFC 3986),
+    // so the uri validator must accept it.
+    test('accepts a valid URN (URN is a URI)', () {
+      expect(validator('urn:isbn:0451450523'), isTrue);
+      expect(validator('urn:example:foo'), isTrue);
+    });
+
+    // Note: Uri.tryParse is intentionally lenient — it accepts almost any
+    // non-null string, including empty strings and relative references.
+    // This is by design; see plan_json_schema_correctness for rationale.
+  });
+
+  group('StringFormatValidator urn', () {
+    final validator = StringFormatValidator().getValidator('urn')!.function;
+
+    test('accepts a valid URN', () {
+      expect(validator('urn:isbn:0451450523'), isTrue);
+      expect(validator('urn:example:foo'), isTrue);
+    });
+
+    // Plain http/https URLs are not valid URNs (wrong scheme).
+    test('rejects an http URL', () {
+      expect(validator('https://example.com'), isFalse);
+      expect(validator('http://example.com/path'), isFalse);
+    });
+
+    test('rejects an empty string', () {
+      expect(validator(''), isFalse);
+    });
+  });
+
+  // ── Urn class ────────────────────────────────────────────────────────────────
+
   group('urn', () {
     for (var urn in [
       'urn:example:foo',

@@ -57,30 +57,73 @@ final class CompositeRule extends SchemaRule {
 
 // ── Type ─────────────────────────────────────────────────────────────────────
 
-/// Validates the Dart runtime type of a value against a JSON Schema `type`.
-final class TypeRule extends SchemaRule {
-  const TypeRule(this.type);
+/// Checks whether [value] matches a single JSON Schema type string.
+///
+/// Returns `true` if the value satisfies [type]. Unknown type strings
+/// are silently accepted (spec says unknown types are ignored).
+bool _matchesType(String type, dynamic value) {
+  return switch (type) {
+    'string' => value is String,
+    'number' => value is num,
+    // Per JSON Schema spec §6.1.1, an integer is any number without a
+    // fractional part — so 1.0 (a Dart double) must be accepted.
+    // Non-finite doubles (NaN, Infinity) are excluded because their
+    // modulo is NaN, not 0.
+    'integer' =>
+      value is int || (value is double && value.isFinite && value % 1 == 0),
+    'boolean' => value is bool,
+    'array' => value is List,
+    'object' => value is Map,
+    'null' => value == null,
+    _ => true, // unknown types are silently ignored
+  };
+}
 
-  /// The JSON Schema type string (`string`, `number`, `integer`, `boolean`,
-  /// `array`, `object`, `null`).
-  final String type;
+/// Validates the Dart runtime type of a value against a JSON Schema `type`.
+///
+/// Supports both the string form (`"type": "string"`) and the array form
+/// (`"type": ["string", "null"]`) as required by JSON Schema spec §6.1.1.
+/// In the array form the value is valid if it matches *any* of the listed
+/// types (logical OR).
+final class TypeRule extends SchemaRule {
+  /// Creates a rule that accepts a single [type] string.
+  TypeRule(String type) : types = [type], _single = type;
+
+  /// Creates a rule that accepts any of [types] (array form).
+  ///
+  /// Per JSON Schema spec §6.1.1, a value is valid when its type matches
+  /// at least one entry in the list.
+  TypeRule.fromList(this.types) : _single = null;
+
+  /// The JSON Schema type strings accepted by this rule.
+  ///
+  /// Contains exactly one entry in the single-string form, and two or more
+  /// entries in the array form.
+  final List<String> types;
+
+  // Backing field for the single-string form; null when constructed via
+  // [TypeRule.fromList].
+  final String? _single;
 
   @override
   List<SchemaViolation> validate(dynamic value, String path) {
-    final ok = switch (type) {
-      'string' => value is String,
-      'number' => value is num,
-      'integer' => value is int,
-      'boolean' => value is bool,
-      'array' => value is List,
-      'object' => value is Map,
-      'null' => value == null,
-      _ => true, // unknown types are silently ignored
-    };
-    if (!ok) {
-      return [SchemaViolation(path: path, message: 'expected type $type')];
+    if (_single != null) {
+      // Single-type form: produce a targeted error message.
+      if (!_matchesType(_single, value)) {
+        return [SchemaViolation(path: path, message: 'expected type $_single')];
+      }
+      return [];
     }
-    return [];
+    // Array form — value must match at least one listed type.
+    for (final t in types) {
+      if (_matchesType(t, value)) return [];
+    }
+    return [
+      SchemaViolation(
+        path: path,
+        message: 'expected type to be one of: ${types.join(', ')}',
+      ),
+    ];
   }
 }
 
@@ -257,8 +300,9 @@ final class StringRule extends SchemaRule {
       );
     }
     if (pattern != null) {
-      final m = pattern!.firstMatch(value);
-      if (m == null || m.start != 0 || m.end != value.length) {
+      // Per JSON Schema spec §6.3.3, patterns are not implicitly anchored —
+      // the pattern only needs to match somewhere within the string.
+      if (!pattern!.hasMatch(value)) {
         violations.add(
           SchemaViolation(
             path: path,

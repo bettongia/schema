@@ -356,13 +356,31 @@ void main() {
     test('name', () async {
       expect(PatternValidator.fromString(r'a').name, 'pattern');
     });
-    test('valid', () async {
+
+    test('valid — full string match', () async {
       expect(PatternValidator.fromString(r'cat')('cat'), isTrue);
       expect(PatternValidator.fromString(r'[bc]at')('bat'), isTrue);
     });
-    test('not valid', () async {
+
+    // Per JSON Schema spec §6.3.3 patterns are NOT implicitly anchored;
+    // the pattern need only match somewhere within the string.
+    test('valid — mid-string match (spec §6.3.3 non-anchored)', () async {
+      expect(PatternValidator.fromString(r'cat')('foocat'), isTrue);
+      expect(PatternValidator.fromString(r'cat')('catfish'), isTrue);
+      expect(PatternValidator.fromString(r'foo')('foobar'), isTrue);
+      expect(PatternValidator.fromString(r'\d+')('abc123'), isTrue);
+    });
+
+    test('not valid — no match anywhere in string', () async {
       expect(PatternValidator.fromString(r'cat')('rat'), isFalse);
       expect(PatternValidator.fromString(r'[bc]at')('rat'), isFalse);
+      expect(PatternValidator.fromString(r'xyz')('foobar'), isFalse);
+    });
+
+    // An empty pattern matches every string (spec-correct: always passes).
+    test('empty pattern always matches', () async {
+      expect(PatternValidator.fromString(r'')(''), isTrue);
+      expect(PatternValidator.fromString(r'')('anything'), isTrue);
     });
 
     test('equal', () async {
@@ -800,9 +818,20 @@ void main() {
     });
 
     test('integer', () {
+      // Dart int literals are always valid.
       expect(TypeValidator('integer')(42), isTrue);
+      // A double with zero fractional part is a valid integer per spec §6.1.1.
+      expect(TypeValidator('integer')(1.0), isTrue);
+      expect(TypeValidator('integer')(-3.0), isTrue);
+      // A double with a non-zero fractional part is not an integer.
       expect(TypeValidator('integer')(3.14), isFalse);
+      // Non-numeric types are never integers.
       expect(TypeValidator('integer')('42'), isFalse);
+      // Non-finite doubles must be rejected (regression guard:
+      // double.nan % 1 == NaN and double.infinity % 1 == NaN, not 0).
+      expect(TypeValidator('integer')(double.nan), isFalse);
+      expect(TypeValidator('integer')(double.infinity), isFalse);
+      expect(TypeValidator('integer')(double.negativeInfinity), isFalse);
     });
 
     test('boolean', () {
@@ -842,6 +871,35 @@ void main() {
       expect(TypeValidator('string').toMap(), {
         'name': 'type',
         'value': 'string',
+      });
+    });
+
+    // Array-form TypeValidator (spec §6.1.1: type may be an array of strings).
+    group('fromList', () {
+      test('accepts value matching any listed type', () {
+        final v = TypeValidator.fromList(['string', 'null']);
+        expect(v('hello'), isTrue);
+        expect(v(null), isTrue);
+      });
+
+      test('rejects value matching none of the listed types', () {
+        final v = TypeValidator.fromList(['string', 'null']);
+        expect(v(42), isFalse);
+        expect(v(true), isFalse);
+        expect(v([]), isFalse);
+      });
+
+      test('single-element list equivalent to string form', () {
+        expect(TypeValidator.fromList(['string'])('hi'), isTrue);
+        expect(TypeValidator.fromList(['string'])(42), isFalse);
+      });
+
+      test('integer in list accepts whole-number doubles', () {
+        final v = TypeValidator.fromList(['integer', 'null']);
+        expect(v(3), isTrue);
+        expect(v(3.0), isTrue);
+        expect(v(null), isTrue);
+        expect(v(3.14), isFalse);
       });
     });
   });

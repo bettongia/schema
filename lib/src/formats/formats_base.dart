@@ -61,14 +61,19 @@ class StringFormatValidator implements StringValidatorService {
     'uri': StringValidator(
       'uri',
       'A string instance is valid against this attribute if it is a valid URI,'
-          ' according to RFC 3986',
-      (value) => Urn.tryParse(value) != null ? true : false,
+          ' according to RFC 3986. Note: a valid URN (urn: scheme) is also a'
+          ' valid URI, so this validator accepts both http URLs and URNs.',
+      // Uri.tryParse is intentionally lenient: it accepts all registered URI
+      // schemes, including urn:. A URN is a valid URI per RFC 3986.
+      (value) => Uri.tryParse(value) != null ? true : false,
     ),
     'urn': StringValidator(
       'urn',
       'A string instance is valid against this attribute if it is a valid URN,'
           ' according to RFC 8141',
-      (value) => Uri.tryParse(value) != null ? true : false,
+      // Urn.tryParse strictly validates URN syntax (urn:<nid>:<nss>).
+      // Plain http/https URLs are not URNs and are rejected.
+      (value) => Urn.tryParse(value) != null ? true : false,
     ),
     'duration': StringValidator(
       'duration',

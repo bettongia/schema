@@ -401,9 +401,9 @@ class PatternValidator implements Validator<String> {
 
   @override
   bool call(String input) {
-    final match = pattern.firstMatch(input);
-
-    return match != null && match.start == 0 && match.end == input.length;
+    // Per JSON Schema spec §6.3.3, patterns are not implicitly anchored —
+    // the pattern only needs to match somewhere within the string.
+    return pattern.hasMatch(input);
   }
 
   @override
@@ -605,31 +605,63 @@ class Required implements Validator<Map> {
   Map<String, dynamic> toMap() => {'name': name, 'value': properties};
 }
 
+/// Checks whether [input] matches a single JSON Schema type string.
+///
+/// Returns `true` if the value satisfies [type]. Unknown type strings return
+/// `false` (unlike `SchemaRule` which silently ignores them, this Layer 1
+/// validator is strict so callers can detect typos).
+bool _matchesType(String type, dynamic input) {
+  return switch (type) {
+    'string' => input is String,
+    'number' => input is num,
+    // Per JSON Schema spec §6.1.1, an integer is any number without a
+    // fractional part — so 1.0 (a Dart double) must be accepted.
+    // Non-finite doubles (NaN, Infinity) are excluded because their
+    // modulo is NaN, not 0.
+    'integer' =>
+      input is int || (input is double && input.isFinite && input % 1 == 0),
+    'boolean' => input is bool,
+    'array' => input is List,
+    'object' => input is Map,
+    'null' => input == null,
+    _ => false,
+  };
+}
+
 /// Validates that a value matches one of the JSON Schema [type] strings.
+///
+/// Supports both the single-string form (`TypeValidator('string')`) and the
+/// array form (`TypeValidator.fromList(['string', 'null'])`) as required by
+/// JSON Schema spec §6.1.1. In the array form the value is valid if it
+/// matches *any* of the listed types (logical OR).
 ///
 /// Supported types: `string`, `number`, `integer`, `boolean`, `array`,
 /// `object`, `null`.
 class TypeValidator implements Validator<dynamic> {
-  /// The expected JSON Schema type string.
+  /// Creates a validator that accepts a single [type] string.
+  TypeValidator(this.type) : types = [type];
+
+  /// Creates a validator that accepts any of [types] (array form).
+  ///
+  /// Per JSON Schema spec §6.1.1, a value is valid when its type matches
+  /// at least one entry in the list.
+  TypeValidator.fromList(this.types) : type = types.join(',');
+
+  /// The expected JSON Schema type string, or a comma-joined list for the
+  /// array form (used for equality and hashing only).
   final String type;
+
+  /// All accepted type strings.
+  ///
+  /// Contains exactly one entry in the single-string form.
+  final List<String> types;
 
   @override
   final String name = 'type';
 
-  TypeValidator(this.type);
-
   @override
   bool call(dynamic input) {
-    return switch (type) {
-      'string' => input is String,
-      'number' => input is num,
-      'integer' => input is int,
-      'boolean' => input is bool,
-      'array' => input is List,
-      'object' => input is Map,
-      'null' => input == null,
-      _ => false,
-    };
+    return types.any((t) => _matchesType(t, input));
   }
 
   @override

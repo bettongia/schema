@@ -41,9 +41,14 @@ void main() {
       expect(validate({'type': 'number'}, 3), isEmpty);
       expect(validate({'type': 'number'}, 3.14), isEmpty);
     });
-    test('integer passes for int only', () {
+    test('integer passes for int and whole-number double (spec §6.1.1)', () {
       expect(validate({'type': 'integer'}, 3), isEmpty);
+      expect(validate({'type': 'integer'}, 1.0), isEmpty);
+      expect(validate({'type': 'integer'}, -2.0), isEmpty);
       expect(validate({'type': 'integer'}, 3.14), isNotEmpty);
+      // Non-finite doubles must be rejected (regression guard).
+      expect(validate({'type': 'integer'}, double.nan), isNotEmpty);
+      expect(validate({'type': 'integer'}, double.infinity), isNotEmpty);
     });
     test('boolean', () {
       expect(validate({'type': 'boolean'}, true), isEmpty);
@@ -65,6 +70,48 @@ void main() {
       final violations = validate({'type': 'string'}, 42);
       expect(violations.first.path, '');
       expect(violations.first.message, contains('string'));
+    });
+
+    // Per JSON Schema spec §6.1.1, type may be an array of strings.
+    group('array form', () {
+      test('accepts value matching any listed type', () {
+        expect(
+          validate({
+            'type': ['string', 'null'],
+          }, 'hello'),
+          isEmpty,
+        );
+        expect(
+          validate({
+            'type': ['string', 'null'],
+          }, null),
+          isEmpty,
+        );
+      });
+
+      test('rejects value matching none of the listed types', () {
+        expect(
+          validate({
+            'type': ['string', 'null'],
+          }, 42),
+          isNotEmpty,
+        );
+      });
+
+      test('single-element array equivalent to string form', () {
+        expect(
+          validate({
+            'type': ['string'],
+          }, 'hi'),
+          isEmpty,
+        );
+        expect(
+          validate({
+            'type': ['string'],
+          }, 42),
+          isNotEmpty,
+        );
+      });
     });
   });
 
@@ -191,9 +238,17 @@ void main() {
       expect(validate({'maxLength': 5}, 'abc'), isEmpty);
       expect(validate({'maxLength': 5}, 'abcdef'), isNotEmpty);
     });
-    test('pattern match', () {
+    test('pattern match — anchored pattern still works', () {
       expect(validate({'pattern': r'^\d+$'}, '123'), isEmpty);
       expect(validate({'pattern': r'^\d+$'}, 'abc'), isNotEmpty);
+    });
+
+    // Per JSON Schema spec §6.3.3, patterns are NOT implicitly anchored.
+    test('pattern match — mid-string match is valid (spec §6.3.3)', () {
+      expect(validate({'pattern': r'foo'}, 'foobar'), isEmpty);
+      expect(validate({'pattern': r'foo'}, 'barfoo'), isEmpty);
+      expect(validate({'pattern': r'\d+'}, 'abc123'), isEmpty);
+      expect(validate({'pattern': r'foo'}, 'bar'), isNotEmpty);
     });
     test('non-string skipped', () {
       expect(validate({'minLength': 3}, 42), isEmpty);
@@ -218,6 +273,25 @@ void main() {
     });
     test('non-string skipped', () {
       expect(validate({'format': 'email'}, 42), isEmpty);
+    });
+
+    // uri format: accepts http URLs and valid URNs (a URN is a URI).
+    test('uri format accepts http URL', () {
+      expect(validate({'format': 'uri'}, 'https://example.com'), isEmpty);
+    });
+    test('uri format accepts a valid URN (URN is a URI)', () {
+      expect(validate({'format': 'uri'}, 'urn:isbn:0451450523'), isEmpty);
+    });
+    // Note: Uri.tryParse is intentionally lenient — the uri validator is a
+    // lenient superset (accepts relative references, bare words, etc.). This
+    // is documented behaviour; see plan_json_schema_correctness for rationale.
+
+    // urn format: accepts only URNs, not plain http URLs.
+    test('urn format accepts valid URN', () {
+      expect(validate({'format': 'urn'}, 'urn:example:foo'), isEmpty);
+    });
+    test('urn format rejects http URL', () {
+      expect(validate({'format': 'urn'}, 'https://example.com'), isNotEmpty);
     });
   });
 

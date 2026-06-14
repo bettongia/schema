@@ -74,5 +74,36 @@ void main() {
         expect(HexString.tryParse(h), isNull);
       });
     }
+
+    group('isValid', () {
+      test('returns true for hex string', () {
+        expect(HexString.isValid('deadbeef'), isTrue);
+      });
+
+      test('returns false for non-hex string', () {
+        expect(HexString.isValid('xyz'), isFalse);
+      });
+    });
+
+    group('unHex', () {
+      test('digit characters 0-9', () {
+        expect(HexString.unHex('0'.codeUnitAt(0)), 0);
+        expect(HexString.unHex('9'.codeUnitAt(0)), 9);
+      });
+
+      test('lowercase a-f', () {
+        expect(HexString.unHex('a'.codeUnitAt(0)), 10);
+        expect(HexString.unHex('f'.codeUnitAt(0)), 15);
+      });
+
+      test('uppercase A-F', () {
+        expect(HexString.unHex('A'.codeUnitAt(0)), 10);
+        expect(HexString.unHex('F'.codeUnitAt(0)), 15);
+      });
+
+      test('non-hex character returns 0', () {
+        expect(HexString.unHex('z'.codeUnitAt(0)), 0);
+      });
+    });
   });
 }

@@ -161,7 +161,7 @@ class LangTag implements LanguageTag {
   String toString() {
     var result = _rendered;
     if (result == null) {
-      _rendered = [
+      result = [
         language,
         if (extendedLanguageSubtags != null) extendedLanguageSubtags,
         if (script != null) script,
@@ -170,9 +170,9 @@ class LangTag implements LanguageTag {
         if (extension != null) extension,
         if (privateuse != null) privateuse,
       ].join(defaultSeparator);
+      _rendered = result;
     }
-    _rendered = result;
-    return result ?? '';
+    return result;
   }
 }
 

@@ -42,10 +42,13 @@ final class SchemaParser {
   SchemaRule parse(Map<String, dynamic> schema) {
     final rules = <SchemaRule>[];
 
-    // type
+    // type — spec §6.1.1 allows either a string or an array of strings.
     final type = schema['type'];
     if (type is String) {
       rules.add(TypeRule(type));
+    } else if (type is List) {
+      // Array form: value is valid when its type matches any listed entry.
+      rules.add(TypeRule.fromList(List<String>.from(type)));
     }
 
     // required
