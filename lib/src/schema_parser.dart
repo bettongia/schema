@@ -114,22 +114,121 @@ final class SchemaParser {
       rules.add(PropertiesRule(parsedProperties));
     }
 
-    // additionalProperties: false — only active when properties are declared
-    if (schema['additionalProperties'] == false && parsedProperties != null) {
-      rules.add(AdditionalPropertiesRule(parsedProperties.keys.toSet()));
+    // patternProperties — a map of ECMA-262 regex strings to sub-schemas.
+    // Per spec §6.5.5, pattern matching is unanchored (hasMatch).
+    // An invalid regex key throws FormatException at parse time: malformed
+    // regexes are schema-authoring errors that must be surfaced immediately.
+    final patternPropertiesRaw = schema['patternProperties'];
+    List<(RegExp, SchemaRule)>? parsedPatterns;
+    if (patternPropertiesRaw is Map) {
+      parsedPatterns = [];
+      for (final entry in patternPropertiesRaw.entries) {
+        if (entry.value is! Map<String, dynamic>) continue;
+        // Throws FormatException if the key is not a valid regex.
+        final regex = RegExp(entry.key as String);
+        final subRule = parse(entry.value as Map<String, dynamic>);
+        parsedPatterns.add((regex, subRule));
+      }
+      if (parsedPatterns.isNotEmpty) {
+        rules.add(PatternPropertiesRule(parsedPatterns));
+      }
     }
 
-    // array constraints
+    // additionalProperties — handles both `false` (reject all extras) and a
+    // Map sub-schema (validate extras). Removed the parsedProperties != null
+    // guard so this activates even when `properties` is absent.
+    final additionalPropertiesRaw = schema['additionalProperties'];
+    final declaredKeys = parsedProperties?.keys.toSet() ?? const <String>{};
+    final patternRegexes =
+        parsedPatterns?.map((p) => p.$1).toList() ?? const <RegExp>[];
+
+    if (additionalPropertiesRaw == false) {
+      // Reject all properties not covered by `properties` or
+      // `patternProperties`. Use AdditionalPropertiesSchemaRule (with an
+      // AlwaysInvalidRule payload) in all cases so that patternProperties
+      // patterns are respected at runtime — pattern-matched keys are skipped
+      // and not counted as "additional". When no patterns are present the
+      // patternRegexes list is empty so all non-declared keys are rejected.
+      rules.add(
+        AdditionalPropertiesSchemaRule(
+          schema: const AlwaysInvalidRule(),
+          declaredKeys: declaredKeys,
+          patternRegexes: patternRegexes,
+        ),
+      );
+    } else if (additionalPropertiesRaw is Map<String, dynamic>) {
+      final additionalSchema = parse(additionalPropertiesRaw);
+      rules.add(
+        AdditionalPropertiesSchemaRule(
+          schema: additionalSchema,
+          declaredKeys: declaredKeys,
+          patternRegexes: patternRegexes,
+        ),
+      );
+    }
+
+    // prefixItems — list of sub-schemas applied positionally (2020-12 §6.4.1).
+    // Parse before `items` so we can set the start index for items validation.
+    final prefixItemsRaw = schema['prefixItems'];
+    int prefixLength = 0;
+    if (prefixItemsRaw is List) {
+      final prefixSchemas = <SchemaRule>[];
+      for (final entry in prefixItemsRaw) {
+        if (entry is Map<String, dynamic>) {
+          prefixSchemas.add(parse(entry));
+        }
+      }
+      if (prefixSchemas.isNotEmpty) {
+        rules.add(PrefixItemsRule(prefixSchemas));
+        prefixLength = prefixSchemas.length;
+      }
+    }
+
+    // array constraints — `items` applies to elements beyond the prefix when
+    // `prefixItems` is present (itemsStartIndex = prefixLength), or uniformly
+    // to all elements when `prefixItems` is absent (itemsStartIndex = 0).
     final minItems = schema['minItems'] as int?;
     final maxItems = schema['maxItems'] as int?;
     final itemsRaw = schema['items'];
     SchemaRule? itemsRule;
     if (itemsRaw is Map<String, dynamic>) {
       itemsRule = parse(itemsRaw);
+    } else if (itemsRaw == false) {
+      // Boolean `items: false` — emit a rule that rejects any element in scope.
+      // The "in scope" set is elements beyond the prefix (if prefixItems is
+      // present) or all elements (if not).
+      itemsRule = AlwaysInvalidRule();
     }
+    // items: true is a no-op — leave itemsRule as null.
+    // Also emit ArrayRule when only prefixItems is present (no items/minItems/
+    // maxItems) so that prefixItems can still coexist with an items schema
+    // added later. When all three are absent there is nothing to add.
     if (minItems != null || maxItems != null || itemsRule != null) {
       rules.add(
-        ArrayRule(minItems: minItems, maxItems: maxItems, items: itemsRule),
+        ArrayRule(
+          minItems: minItems,
+          maxItems: maxItems,
+          items: itemsRule,
+          itemsStartIndex: prefixLength,
+        ),
+      );
+    }
+
+    // contains / minContains / maxContains (spec §6.4.5, §6.4.4, §6.4.6).
+    // minContains and maxContains have no effect without contains.
+    // Use `is Map` (not Map<String,dynamic>) so that the empty schema {}
+    // (which Dart infers as Map<dynamic,dynamic>) is also accepted.
+    final containsRaw = schema['contains'];
+    if (containsRaw is Map) {
+      final containsSchema = parse(Map<String, dynamic>.from(containsRaw));
+      final minContains = schema['minContains'] as int? ?? 1;
+      final maxContains = schema['maxContains'] as int?;
+      rules.add(
+        ContainsRule(
+          itemSchema: containsSchema,
+          minContains: minContains,
+          maxContains: maxContains,
+        ),
       );
     }
 

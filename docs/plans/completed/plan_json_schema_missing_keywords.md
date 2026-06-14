@@ -1,6 +1,6 @@
 # JSON Schema: Missing Keywords
 
-**Status**: Implementing
+**Status**: Complete
 
 **PR link**: _pending_
 
@@ -115,70 +115,70 @@ cross-rule communication would be complex.
 
 ## Implementation plan
 
-- [ ] **`ContainsRule`** (`contains` / `minContains` / `maxContains`)
-  - [ ] Add `ContainsRule` to `schema_rule.dart`; fields: `itemSchema`,
+- [x] **`ContainsRule`** (`contains` / `minContains` / `maxContains`)
+  - [x] Add `ContainsRule` to `schema_rule.dart`; fields: `itemSchema`,
         `minContains` (default 1), `maxContains` (nullable); no-op on non-List
-  - [ ] Validation: count elements where `itemSchema.validate(el, path).isEmpty`
+  - [x] Validation: count elements where `itemSchema.validate(el, path).isEmpty`
         (sub-schema violations are a counting signal only — never emitted);
         emit violations for under/over count
-  - [ ] Add `'contains'` branch to `SchemaParser.parse()`; read `minContains`
+  - [x] Add `'contains'` branch to `SchemaParser.parse()`; read `minContains`
         and `maxContains` only when `contains` is present
-  - [ ] Tests: one match passes; zero matches fails; `minContains: 0` always
+  - [x] Tests: one match passes; zero matches fails; `minContains: 0` always
         passes when no `maxContains`; `maxContains` exceeded fails; combined
         range within/outside bounds; `contains: {}` matches every element
         (empty schema = always valid); non-array value produces no violation
-- [ ] **`PrefixItemsRule`** and updated `ArrayRule` / boolean `items`
-  - [ ] Add `PrefixItemsRule` to `schema_rule.dart`; validates elements by index
+- [x] **`PrefixItemsRule`** and updated `ArrayRule` / boolean `items`
+  - [x] Add `PrefixItemsRule` to `schema_rule.dart`; validates elements by index
         against a `List<SchemaRule>`; emits `path[i]` violations; array shorter
         than prefix → extra prefix schemas simply do not apply (no violation)
-  - [ ] Update `SchemaParser.parse()` to parse `prefixItems` as a list of
+  - [x] Update `SchemaParser.parse()` to parse `prefixItems` as a list of
         sub-schemas and emit `PrefixItemsRule`
-  - [ ] Update `ArrayRule` so `items` only applies to indices ≥
+  - [x] Update `ArrayRule` so `items` only applies to indices ≥
         `prefixItems.length` when `prefixItems` is present
-  - [ ] Handle boolean `items` in the parser: `items: true` → no rule emitted;
+  - [x] Handle boolean `items` in the parser: `items: true` → no rule emitted;
         `items: false` → emit a rule that rejects any element in scope (all
         elements when no `prefixItems`; elements beyond the prefix otherwise)
-  - [ ] Tests: each positional schema validated; item beyond prefix validated
+  - [x] Tests: each positional schema validated; item beyond prefix validated
         by `items` schema; item beyond prefix with no `items` → no constraint;
         array shorter than prefix → no violation for unmatched prefix schemas;
         `items: false` with `prefixItems` rejects third element; `items: false`
         without `prefixItems` rejects any element; `items: true` always passes;
         `prefixItems` independent of `minItems`/`maxItems`
-- [ ] **`PatternPropertiesRule`**
-  - [ ] Add `PatternPropertiesRule` to `schema_rule.dart`; field:
+- [x] **`PatternPropertiesRule`**
+  - [x] Add `PatternPropertiesRule` to `schema_rule.dart`; field:
         `List<(RegExp, SchemaRule)> patterns`; match property names with
         `regExp.hasMatch(name)` (unanchored per spec §6.5.5); apply sub-schema
         of every matching pattern
-  - [ ] Add `'patternProperties'` branch to `SchemaParser.parse()`; throw
+  - [x] Add `'patternProperties'` branch to `SchemaParser.parse()`; throw
         `FormatException` for any pattern key that is not a valid regex
-  - [ ] Tests: property matched by one pattern; property matched by multiple
+  - [x] Tests: property matched by one pattern; property matched by multiple
         patterns (all matching schemas validated, all violations surfaced);
         unmatched property produces no violation; invalid `patternProperties`
         regex key throws `FormatException` at parse time; interaction with
         `additionalProperties: false`; pattern matching is unanchored (partial
         match on property name passes)
-- [ ] **`AdditionalPropertiesSchemaRule`** and parser guard removal
-  - [ ] Remove the `parsedProperties != null` guard at `schema_parser.dart:115`;
+- [x] **`AdditionalPropertiesSchemaRule`** and parser guard removal
+  - [x] Remove the `parsedProperties != null` guard at `schema_parser.dart:115`;
         `additionalProperties` (false or schema) must be active even when
         `properties` is absent
-  - [ ] Build the "evaluated" key set at parse time: union of `properties` keys
+  - [x] Build the "evaluated" key set at parse time: union of `properties` keys
         and all property names matched by any `patternProperties` pattern is
         computed at parse time where possible; remaining runtime matching handled
         by `PatternPropertiesRule`
-  - [ ] Add `AdditionalPropertiesSchemaRule` to `schema_rule.dart`; applies a
+  - [x] Add `AdditionalPropertiesSchemaRule` to `schema_rule.dart`; applies a
         sub-schema to every property not covered by `properties` or
         `patternProperties`; `false` still emits existing `AdditionalPropertiesRule`
-  - [ ] Update `SchemaParser.parse()` to detect `additionalProperties` as a
+  - [x] Update `SchemaParser.parse()` to detect `additionalProperties` as a
         `Map`, parse as sub-schema, emit `AdditionalPropertiesSchemaRule`
-  - [ ] Tests: additional property valid against schema passes; additional
+  - [x] Tests: additional property valid against schema passes; additional
         property invalid against schema fails; declared `properties` key not
         re-validated; `patternProperties`-matched key not re-validated;
         `additionalProperties: false` with no `properties` rejects every key;
         `additionalProperties` schema with no `properties` validates every key;
         key matched by both `properties` and a pattern only validated by
         `properties` (not re-validated by `additionalProperties`)
-- [ ] **Update `docs/spec/`** — document the newly supported keywords
-- [ ] Run `make pre_commit` and confirm all tests pass at ≥ 90% coverage
+- [x] **Update `docs/spec/`** — document the newly supported keywords
+- [x] Run `make pre_commit` and confirm all tests pass at ≥ 90% coverage
 
 ## Reviews
 
@@ -309,4 +309,16 @@ implementation checklist absorbs items 1–3, this is ready for `Investigated`.
 
 ## Summary
 
-_Pending implementation._
+- Added `AlwaysInvalidRule` to `schema_rule.dart` — a sentinel that always fails, used as the payload for boolean `false` schemas (`items: false`, `additionalProperties: false` with pattern properties).
+- Added `ContainsRule` to `schema_rule.dart` implementing `contains` / `minContains` / `maxContains` (§6.4.4–6.4.6). Sub-schema violations are used as a counting signal only and never forwarded to the caller.
+- Added `PrefixItemsRule` to `schema_rule.dart` for positional element validation per `prefixItems` (§6.4.1). Arrays shorter than the prefix list produce no violation for unmatched schemas.
+- Extended `ArrayRule` with an `itemsStartIndex` parameter so `items` applies only to elements beyond the prefix when `prefixItems` is present. Boolean `items: true` is a no-op; `items: false` emits `AlwaysInvalidRule`.
+- Added `PatternPropertiesRule` to `schema_rule.dart` with unanchored `RegExp.hasMatch` matching per spec §6.5.5. Invalid regex keys throw `FormatException` at parse time.
+- Added `AdditionalPropertiesSchemaRule` to `schema_rule.dart` that validates additional properties against a sub-schema while correctly skipping both declared keys and pattern-matched keys.
+- Updated `SchemaParser` to wire all new rules; removed the `parsedProperties != null` guard so `additionalProperties` (both `false` and schema form) now activates even when `properties` is absent.
+- Parser now uses `AdditionalPropertiesSchemaRule` (with `AlwaysInvalidRule`) for `additionalProperties: false` in all cases, ensuring `patternProperties`-matched keys are correctly excluded at runtime.
+- Added `test/src/schema_missing_keywords_test.dart` with 53 tests covering all new rules, edge cases, boundary conditions, and keyword interactions.
+- Updated `docs/spec/README.md` to document `contains`/`minContains`/`maxContains`, `prefixItems` and boolean `items`, `patternProperties`, and the schema form of `additionalProperties`.
+- All 749 tests pass; coverage 95.5% (above the 90% threshold); zero analyzer issues.
+- No deviations from the plan. The `parsedProperties != null` guard was cleanly replaced by always using `AdditionalPropertiesSchemaRule` for both `false` and schema forms.
+- `schemaModelVersion` stays at `1` per the decision recorded in open questions.

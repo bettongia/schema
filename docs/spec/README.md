@@ -164,6 +164,117 @@ to the object, followed by the missing property name
 An empty dependent list (`"trigger": []`) always passes when the trigger is
 present.
 
+## `contains` (§6.4.5), `minContains` (§6.4.4), `maxContains` (§6.4.6)
+
+The `contains` keyword validates that at least one element of an array satisfies
+a sub-schema. `minContains` and `maxContains` refine how many elements must
+match. The three keywords are tightly coupled and implemented together as a
+single `ContainsRule`.
+
+**Semantics:**
+
+- Sub-schema violations from individual element tests are used only as a
+  counting signal — they are never forwarded to the caller. Only the `contains`
+  rule itself emits violations.
+- `minContains` defaults to `1` per spec §6.4.4. A value of `0` makes the rule
+  always pass unless `maxContains` is set and exceeded.
+- `maxContains` is optional. When absent there is no upper bound on matching
+  elements.
+- `minContains` and `maxContains` have no effect when `contains` is absent from
+  the schema.
+
+**Non-array instances** are silently skipped (no violation), consistent with
+every other array-keyword rule.
+
+**Empty sub-schema** (`contains: {}`) matches every element, so
+`minContains`/`maxContains` effectively become array-count constraints
+(e.g. `{"contains": {}, "minContains": 3}` requires at least three elements).
+
+## `prefixItems` (§6.4.1) and boolean `items`
+
+In JSON Schema 2020-12, `prefixItems` is an array of schemas applied
+positionally: element `i` is validated against `prefixItems[i]`. The existing
+`items` keyword applies only to elements **beyond** the prefix (indices ≥
+`prefixItems.length`) when `prefixItems` is present in the same schema. When
+`prefixItems` is absent, `items` applies uniformly to all elements (consistent
+with earlier behaviour).
+
+**`prefixItems` array-length behaviour:**
+
+- If the array is shorter than the prefix list, the extra prefix schemas simply
+  do not apply — there is no violation. This is correct per spec and
+  `minItems`/`maxItems` are the appropriate keywords to enforce length.
+- `prefixItems` is independent of `minItems` and `maxItems`; all four keywords
+  are evaluated simultaneously.
+
+**Boolean `items` (2020-12):**
+
+The spec §6.4.1 clarifies that `items` MUST be a valid JSON Schema, and `false`
+is a valid boolean schema meaning "always invalid".
+
+- `items: true` — no constraint (no rule emitted).
+- `items: false` — any element in scope (all elements when no `prefixItems`;
+  elements beyond the prefix otherwise) is rejected unconditionally.
+- `items: <schema>` — the schema is applied to every element in scope.
+
+Violation paths for positional elements use bracket notation, e.g. `[0]`,
+`[1]`.
+
+## `patternProperties` (§6.5.5)
+
+A map of ECMA-262 regex strings to sub-schemas. For each property in the
+instance, every pattern that matches the property name (unanchored, using
+`RegExp.hasMatch`) causes the associated sub-schema to be applied to the
+property value. A property may be matched by zero, one, or more patterns —
+every matching sub-schema is applied and all violations are collected.
+
+**Key points:**
+
+- Pattern matching is **unanchored**: a pattern need only match *any substring*
+  of the property name, not the full name. Use `^` and `$` anchors to force
+  full-name matching.
+- An invalid regex key throws `FormatException` at **parse time** (not at
+  validation time). A malformed regex is a schema-authoring error that must be
+  surfaced immediately.
+- Properties not matched by any pattern are silently skipped by
+  `PatternPropertiesRule` (no violation).
+- Non-object instances are silently skipped (no violation).
+
+**Interaction with `additionalProperties`:** a property is considered
+"pattern-evaluated" if at least one pattern in `patternProperties` matches its
+name. The `additionalProperties` rule skips pattern-evaluated properties just as
+it skips properties declared in `properties`.
+
+## `additionalProperties` — schema form (§6.5.6)
+
+In addition to `additionalProperties: false` (already supported), the parser
+now handles a **schema-valued** `additionalProperties`. Properties not covered
+by `properties` or `patternProperties` must validate against this sub-schema.
+
+**Evaluated-property tracking:**
+
+The set of "evaluated" keys is determined at parse time:
+
+1. Keys explicitly declared under `properties`.
+2. Keys matched at runtime by any regex in `patternProperties` (handled by
+   `PatternPropertiesRule`).
+
+`AdditionalPropertiesSchemaRule` receives both the static declared-key set and
+the compiled pattern list. At validation time it skips any key that is either
+in the declared set or matched by a pattern, then applies the sub-schema to the
+remaining keys.
+
+**Guard removal:** the previous `parsedProperties != null` guard that prevented
+`additionalProperties` from activating when `properties` was absent has been
+removed. `additionalProperties` (both `false` and schema form) now activates
+regardless of whether `properties` is present. When neither `properties` nor
+`patternProperties` is declared, every key is "additional".
+
+**`additionalProperties: false` with `patternProperties`:**
+Uses `AdditionalPropertiesSchemaRule` with an `AlwaysInvalidRule` payload so
+that pattern-matched keys are correctly excluded from the "additional" set
+before rejection.
+
 ## `format` — `uri` and `urn`
 
 ### `uri`

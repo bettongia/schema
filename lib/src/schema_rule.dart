@@ -38,6 +38,23 @@ sealed class SchemaRule {
   List<SchemaViolation> validate(dynamic value, String path);
 }
 
+// ── AlwaysInvalid ─────────────────────────────────────────────────────────────
+
+/// A sentinel rule that always fails validation with a fixed message.
+///
+/// Used internally by [SchemaParser] to represent boolean `false` schemas
+/// (e.g. `items: false`, or `additionalProperties: false` when combined with
+/// `patternProperties`). Any value validated against this rule produces a
+/// violation regardless of type.
+final class AlwaysInvalidRule extends SchemaRule {
+  const AlwaysInvalidRule();
+
+  @override
+  List<SchemaViolation> validate(dynamic value, String path) => [
+    SchemaViolation(path: path, message: 'value is not allowed here'),
+  ];
+}
+
 // ── Composite ────────────────────────────────────────────────────────────────
 
 /// Runs multiple rules against the same value and collects all violations.
@@ -342,14 +359,35 @@ final class FormatRule extends SchemaRule {
 // ── Array ────────────────────────────────────────────────────────────────────
 
 /// Validates array length and per-element schema constraints.
+///
+/// When `prefixItems` is present in a schema, [items] must only apply to
+/// elements beyond the prefix. The [itemsStartIndex] parameter controls this:
+/// the [items] schema is applied only to elements at indices ≥
+/// [itemsStartIndex]. When [itemsStartIndex] is 0 (the default, used when no
+/// `prefixItems` is present), [items] applies uniformly to all elements, which
+/// is the pre-2020-12 behaviour.
 final class ArrayRule extends SchemaRule {
-  const ArrayRule({this.minItems, this.maxItems, this.items});
+  const ArrayRule({
+    this.minItems,
+    this.maxItems,
+    this.items,
+    this.itemsStartIndex = 0,
+  });
 
   final int? minItems;
   final int? maxItems;
 
-  /// Schema applied to every element in the array.
+  /// Schema applied to elements at indices ≥ [itemsStartIndex].
+  ///
+  /// When `null`, no per-element constraint is applied.
   final SchemaRule? items;
+
+  /// The first index at which [items] applies.
+  ///
+  /// Set to `prefixItems.length` when `prefixItems` is present in the schema,
+  /// so that [items] only constrains elements beyond the positional prefix.
+  /// Defaults to 0 (all elements).
+  final int itemsStartIndex;
 
   @override
   List<SchemaViolation> validate(dynamic value, String path) {
@@ -372,7 +410,12 @@ final class ArrayRule extends SchemaRule {
       );
     }
     if (items != null) {
-      for (var i = 0; i < value.length; i++) {
+      // Apply the items schema only to elements at indices >= itemsStartIndex.
+      // When prefixItems is absent, itemsStartIndex is 0 so all elements are
+      // covered (backwards-compatible behaviour). When prefixItems is present,
+      // itemsStartIndex equals the prefix length so only elements beyond the
+      // prefix are validated by the items schema.
+      for (var i = itemsStartIndex; i < value.length; i++) {
         violations.addAll(items!.validate(value[i], '$path[$i]'));
       }
     }
@@ -532,6 +575,222 @@ final class ObjectSizeRule extends SchemaRule {
           message: 'must have at most $maxProperties properties',
         ),
       );
+    }
+    return violations;
+  }
+}
+
+// ── Contains ──────────────────────────────────────────────────────────────────
+
+/// Validates that an array contains at least [minContains] (default 1) and at
+/// most [maxContains] (optional) elements that satisfy [itemSchema].
+///
+/// Corresponds to the `contains`, `minContains`, and `maxContains` keywords in
+/// JSON Schema spec §6.4.5, §6.4.4, and §6.4.6. The three keywords are tightly
+/// coupled and implemented together in this rule.
+///
+/// Sub-schema violations are used only as a counting signal — they are never
+/// emitted to the caller. The rule reports a single violation when the count
+/// falls outside the permitted range.
+///
+/// Non-array instances are silently skipped (no violation).
+///
+/// `minContains: 0` makes the rule effectively optional unless [maxContains] is
+/// set and exceeded.
+final class ContainsRule extends SchemaRule {
+  /// Creates a rule enforcing that [minContains] to [maxContains] elements
+  /// satisfy [itemSchema].
+  ///
+  /// [minContains] defaults to 1 per spec §6.4.4. [maxContains] is optional;
+  /// when `null` there is no upper bound.
+  const ContainsRule({
+    required this.itemSchema,
+    this.minContains = 1,
+    this.maxContains,
+  });
+
+  /// The sub-schema that each candidate element is tested against.
+  final SchemaRule itemSchema;
+
+  /// The minimum number of elements that must satisfy [itemSchema].
+  ///
+  /// Defaults to 1, which means at least one element must match. A value of 0
+  /// means the rule always passes unless [maxContains] is violated.
+  final int minContains;
+
+  /// The maximum number of elements allowed to satisfy [itemSchema].
+  ///
+  /// When `null` there is no upper bound.
+  final int? maxContains;
+
+  @override
+  List<SchemaViolation> validate(dynamic value, String path) {
+    // Applies only to arrays; other types are silently skipped.
+    if (value is! List) return [];
+
+    // Count elements that satisfy the sub-schema. Violations from the
+    // sub-schema are used only as a non-match signal and are never forwarded
+    // to the caller.
+    var matchCount = 0;
+    for (final element in value) {
+      if (itemSchema.validate(element, path).isEmpty) {
+        matchCount++;
+      }
+    }
+
+    final violations = <SchemaViolation>[];
+
+    if (matchCount < minContains) {
+      violations.add(
+        SchemaViolation(
+          path: path,
+          message:
+              'must contain at least $minContains matching item(s) '
+              '(found $matchCount)',
+        ),
+      );
+    }
+
+    if (maxContains != null && matchCount > maxContains!) {
+      violations.add(
+        SchemaViolation(
+          path: path,
+          message:
+              'must contain at most $maxContains matching item(s) '
+              '(found $matchCount)',
+        ),
+      );
+    }
+
+    return violations;
+  }
+}
+
+// ── PrefixItems ───────────────────────────────────────────────────────────────
+
+/// Validates array elements positionally against a list of per-index schemas.
+///
+/// Corresponds to `prefixItems` in JSON Schema spec §6.4.1 (2020-12). Element
+/// at index `i` is validated against `schemas[i]`. If the array is shorter than
+/// the prefix list, the extra prefix schemas simply do not apply — there is no
+/// violation for a short array. Elements beyond the prefix are not validated by
+/// this rule; use [ArrayRule] with an [ArrayRule.items] schema to constrain
+/// those.
+///
+/// Non-array instances are silently skipped (no violation).
+final class PrefixItemsRule extends SchemaRule {
+  /// Creates a rule that validates positional elements against [schemas].
+  const PrefixItemsRule(this.schemas);
+
+  /// Per-index sub-schemas. `schemas[i]` is applied to element `i`.
+  final List<SchemaRule> schemas;
+
+  @override
+  List<SchemaViolation> validate(dynamic value, String path) {
+    // Applies only to arrays; other types are silently skipped.
+    if (value is! List) return [];
+    final violations = <SchemaViolation>[];
+    // Only iterate as far as the shorter of the array and the prefix list.
+    final limit = schemas.length < value.length ? schemas.length : value.length;
+    for (var i = 0; i < limit; i++) {
+      violations.addAll(schemas[i].validate(value[i], '$path[$i]'));
+    }
+    return violations;
+  }
+}
+
+// ── PatternProperties ─────────────────────────────────────────────────────────
+
+/// Validates object properties whose names match ECMA-262 regex patterns.
+///
+/// Corresponds to `patternProperties` in JSON Schema spec §6.5.5. For each
+/// property in the instance, every pattern in [patterns] is tested against the
+/// property name using [RegExp.hasMatch] (unanchored, per spec). If a pattern
+/// matches, the associated sub-schema is applied to the property value. A
+/// property may be matched by zero, one, or more patterns — every matching
+/// sub-schema is applied and all violations are collected.
+///
+/// Non-object instances are silently skipped (no violation).
+final class PatternPropertiesRule extends SchemaRule {
+  /// Creates a rule from a list of (regex, sub-schema) pairs.
+  ///
+  /// [patterns] is a list of `(RegExp, SchemaRule)` records. Each regex is
+  /// tested unanchored against property names; the associated rule is applied
+  /// to the value of every matching property.
+  const PatternPropertiesRule(this.patterns);
+
+  /// The list of pattern→schema pairs.
+  final List<(RegExp, SchemaRule)> patterns;
+
+  @override
+  List<SchemaViolation> validate(dynamic value, String path) {
+    // Applies only to objects (maps); other types are silently skipped.
+    if (value is! Map) return [];
+    final violations = <SchemaViolation>[];
+    for (final key in value.keys.cast<String>()) {
+      final fieldPath = path.isEmpty ? key : '$path.$key';
+      for (final (regex, rule) in patterns) {
+        // Per JSON Schema spec §6.5.5, pattern matching is unanchored.
+        if (regex.hasMatch(key)) {
+          violations.addAll(rule.validate(value[key], fieldPath));
+        }
+      }
+    }
+    return violations;
+  }
+}
+
+// ── AdditionalPropertiesSchema ────────────────────────────────────────────────
+
+/// Validates properties not covered by `properties` or `patternProperties`
+/// against a sub-schema.
+///
+/// Corresponds to a schema-valued `additionalProperties` in JSON Schema spec
+/// §6.5.6. Properties whose names are in [declaredKeys] or match any regex in
+/// [patternRegexes] are considered "evaluated" and are skipped. All remaining
+/// properties are validated against [schema].
+///
+/// Non-object instances are silently skipped (no violation).
+///
+/// This complements [AdditionalPropertiesRule] (which uses `false` to reject
+/// extra properties outright). When `additionalProperties` is a schema, this
+/// rule is emitted instead.
+final class AdditionalPropertiesSchemaRule extends SchemaRule {
+  /// Creates a rule that applies [schema] to every non-evaluated property.
+  ///
+  /// [declaredKeys] is the set of keys covered by `properties`.
+  /// [patternRegexes] is the list of compiled regex patterns from
+  /// `patternProperties`. A property is "additional" only if its name is
+  /// neither in [declaredKeys] nor matched by any regex in [patternRegexes].
+  const AdditionalPropertiesSchemaRule({
+    required this.schema,
+    required this.declaredKeys,
+    required this.patternRegexes,
+  });
+
+  /// The sub-schema applied to each additional property value.
+  final SchemaRule schema;
+
+  /// Keys explicitly declared under `properties`.
+  final Set<String> declaredKeys;
+
+  /// Compiled regexes from `patternProperties` used to identify
+  /// pattern-matched keys.
+  final List<RegExp> patternRegexes;
+
+  @override
+  List<SchemaViolation> validate(dynamic value, String path) {
+    // Applies only to objects (maps); other types are silently skipped.
+    if (value is! Map) return [];
+    final violations = <SchemaViolation>[];
+    for (final key in value.keys.cast<String>()) {
+      // Skip keys covered by `properties`.
+      if (declaredKeys.contains(key)) continue;
+      // Skip keys matched by any `patternProperties` pattern.
+      if (patternRegexes.any((r) => r.hasMatch(key))) continue;
+      // Apply the sub-schema to the additional property value.
+      final fieldPath = path.isEmpty ? key : '$path.$key';
+      violations.addAll(schema.validate(value[key], fieldPath));
     }
     return violations;
   }
