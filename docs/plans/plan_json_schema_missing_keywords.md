@@ -1,6 +1,6 @@
 # JSON Schema: Missing Keywords
 
-**Status**: Investigated
+**Status**: Implementing
 
 **PR link**: _pending_
 
