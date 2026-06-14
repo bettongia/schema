@@ -8,6 +8,8 @@ pubspec.lock
 
 doc/
 coverage/
+coverage_baseline/
+**/*.dart.vm.json
 .claude
 api-docs/
 site/
