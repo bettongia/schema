@@ -80,6 +80,14 @@ The `Makefile` should contain all key development lifecycle commands. In
 general, `make` should be preferred to directly running commands such as `dart`
 and `flutter`.
 
+After running tests or coverage, `*.dart.vm.json` files are generated inside
+`test/`. These are build artifacts (already listed in `.gitignore`) and should
+be deleted before committing. Run:
+
+```bash
+find test -name "*.dart.vm.json" -delete
+```
+
 ```bash
 # Run tests
 make test

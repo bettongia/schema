@@ -3,9 +3,13 @@
 build/
 coverage/
 doc/
+docs/
 integration_test_app/
 Containerfile
 Makefile
 addlicense_config.txt
 tool/
 Claude.md
+site/
+*.log
+*.vm.json
