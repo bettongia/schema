@@ -1,0 +1,12 @@
+{
+  "title": "Vegemite Toast",
+  "cuisine": "australian",
+  "difficulty": "beginner",
+  "servings": 1,
+  "prepTimeMins": 5,
+  "ingredients": [
+    {"name": "bread", "quantity": "2 slices"},
+    {"name": "vegemite", "quantity": "to taste"}
+  ],
+  "tags": ["toast", "toast"]
+}

@@ -40,6 +40,11 @@ export 'lang.dart';
 export 'roman.dart';
 export 'urn.dart';
 
+/// An immutable descriptor for a single named string-format validator.
+///
+/// [name] identifies the format (e.g. `'email'`, `'uri'`, `'uuid'`).
+/// [description] is a human-readable explanation of the format.
+/// [function] returns `true` if a string value satisfies the format.
 class StringValidator {
   final String name;
   final String description;
@@ -48,14 +53,25 @@ class StringValidator {
   StringValidator(this.name, this.description, this.function);
 }
 
+/// Provides a registry of named string-format validators.
+///
+/// Implementations must ensure [supportedValidators] returns an unmodifiable
+/// view — callers may enumerate it but must not mutate it.
 abstract class StringValidatorService {
-  Map<String, StringValidator> get supportedValidators;
+  /// All validators indexed by format name.
+  ///
+  /// The returned map is unmodifiable; calling any mutating method throws
+  /// [UnsupportedError].
+  UnmodifiableMapView<String, StringValidator> get supportedValidators;
+
+  /// Returns the [StringValidator] for [name], or `null` if unrecognised.
   StringValidator? getValidator(String name);
 }
 
+/// The built-in registry of JSON Schema and project-specific format validators.
 class StringFormatValidator implements StringValidatorService {
   @override
-  Map<String, StringValidator> get supportedValidators =>
+  UnmodifiableMapView<String, StringValidator> get supportedValidators =>
       UnmodifiableMapView(_supportedValidators);
 
   @override
@@ -92,7 +108,7 @@ class StringFormatValidator implements StringValidatorService {
       Email.isValid,
     ),
     'lang': StringValidator(
-      'lamg',
+      'lang',
       'A string instance is valid against this attribute if it is a valid '
           'language tag as defined in RFC 5646',
       LanguageTag.isValid,

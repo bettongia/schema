@@ -24,7 +24,7 @@ import 'schema_violation.dart';
 /// accepts either a `Map<String, dynamic>` or a JSON string, compiles the
 /// schema at construction time, and exposes a single [validate] call.
 ///
-/// This type is intended for non-KMDB consumers who need to validate documents
+/// This type is intended for consumers who need to validate documents
 /// against a JSON Schema without understanding the internal [SchemaRule]
 /// hierarchy.
 ///

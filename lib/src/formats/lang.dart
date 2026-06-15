@@ -54,9 +54,8 @@ sealed class LanguageTag {
 
   /// Parses a language tag string into a [LanguageTag] variant.
   ///
-  /// Returns a [Result] containing the parsed [LanguageTag]
-  /// (this will be a [LangTag], [GrandfatheredTag] or a [PrivateUseTag]) or a
-  /// [FormatParserException] if the [tag] is invalid.
+  /// Returns the parsed [LanguageTag] — one of [LangTag], [GrandfatheredTag],
+  /// or [PrivateUseTag] — or `null` if [tag] is empty or syntactically invalid.
   static LanguageTag? tryParse(
     String tag, {
     String separator = defaultSeparator,

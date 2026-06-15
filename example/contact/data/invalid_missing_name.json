@@ -1,0 +1,8 @@
+{
+  "email": "dave@example.com",
+  "address": {
+    "city": "Paris",
+    "country": "France"
+  },
+  "unknownField": true
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Alice Müller",
+  "email": "alice@example.com",
+  "phone": "+491701234567",
+  "website": "https://alice.example.com/about",
+  "birthday": "1990-03-15",
+  "lastContacted": "2026-06-01T14:30:00Z",
+  "address": {
+    "street": "Hauptstraße 42",
+    "city": "Berlin",
+    "country": "DE"
+  },
+  "tags": ["colleague", "tech", "conference-2025"],
+  "notes": "Met at the 2025 Dart conference. Works on compiler tooling."
+}

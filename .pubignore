@@ -9,7 +9,8 @@ Containerfile
 Makefile
 addlicense_config.txt
 tool/
-Claude.md
+CLAUDE.md
 site/
 *.log
 *.vm.json
+header_template.txt

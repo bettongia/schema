@@ -1,0 +1,11 @@
+{
+  "title": "A Brief History of Time",
+  "authors": ["Stephen Hawking"],
+  "isbn": "978-0-553-38016-3",
+  "publishedDate": "1988-04-01",
+  "publisher": "Bantam Books",
+  "edition": 1,
+  "language": "en",
+  "pageCount": 212,
+  "genres": ["science", "non-fiction"]
+}

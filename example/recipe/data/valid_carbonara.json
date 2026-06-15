@@ -1,0 +1,26 @@
+{
+  "title": "Spaghetti Carbonara",
+  "description": "A classic Roman pasta dish with eggs, cheese, pancetta, and black pepper.",
+  "cuisine": "italian",
+  "difficulty": "medium",
+  "servings": 4,
+  "prepTimeMins": 15,
+  "cookTimeMins": 20,
+  "ingredients": [
+    {"name": "spaghetti", "quantity": "400g"},
+    {"name": "pancetta", "quantity": "150g", "notes": "cut into small cubes"},
+    {"name": "egg yolks", "quantity": "4"},
+    {"name": "Pecorino Romano", "quantity": "100g", "notes": "finely grated"},
+    {"name": "black pepper", "quantity": "to taste", "notes": "freshly ground"}
+  ],
+  "steps": [
+    "Cook spaghetti in well-salted boiling water until al dente.",
+    "Fry pancetta in a dry pan over medium heat until crispy.",
+    "Whisk egg yolks with grated Pecorino Romano and a generous amount of black pepper.",
+    "Drain pasta, reserving a cup of pasta water.",
+    "Toss hot pasta with pancetta off the heat, then fold in the egg mixture.",
+    "Add pasta water a splash at a time until the sauce is glossy and coats every strand.",
+    "Serve immediately with extra Pecorino and black pepper."
+  ],
+  "tags": ["pasta", "eggs", "italian", "classic", "quick"]
+}

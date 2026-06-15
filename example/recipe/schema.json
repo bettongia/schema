@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Recipe",
+  "description": "A culinary recipe with ingredients, timing, and serving information.",
+  "type": "object",
+  "required": ["title", "ingredients", "servings", "prepTimeMins"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "cuisine": {
+      "type": "string",
+      "enum": [
+        "american",
+        "chinese",
+        "french",
+        "indian",
+        "italian",
+        "japanese",
+        "mediterranean",
+        "mexican",
+        "other",
+        "thai"
+      ]
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["easy", "medium", "hard"]
+    },
+    "servings": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50
+    },
+    "prepTimeMins": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1440
+    },
+    "cookTimeMins": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1440
+    },
+    "ingredients": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "quantity"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quantity": {
+            "type": "string",
+            "minLength": 1
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

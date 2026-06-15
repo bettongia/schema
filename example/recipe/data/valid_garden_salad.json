@@ -1,0 +1,12 @@
+{
+  "title": "Garden Salad",
+  "servings": 2,
+  "prepTimeMins": 10,
+  "ingredients": [
+    {"name": "mixed salad greens", "quantity": "100g"},
+    {"name": "cherry tomatoes", "quantity": "10"},
+    {"name": "cucumber", "quantity": "half"},
+    {"name": "olive oil", "quantity": "1 tbsp"},
+    {"name": "lemon juice", "quantity": "1 tsp"}
+  ]
+}

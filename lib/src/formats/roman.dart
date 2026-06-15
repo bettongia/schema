@@ -65,21 +65,13 @@ class RomanNumerals {
 
   /// Attempts to evaluate a Roman numeral as an integer
   ///
-  /// This function does allow for some variation in valid Roman numerals
-  /// (i.e. it will parse "IIII" as the number 4, even though the standard
-  /// Roman numeral for 4 is "IV").
+  /// Evaluates a Roman numeral string as an integer.
   ///
-  /// If the input string is empty, it will return a `Failure` with a
-  /// [RomanNumeralParseException].
+  /// Returns the integer value, or `null` if [value] is empty or contains
+  /// any character that is not a recognised Roman numeral digit.
   ///
-  /// If the input string contains any characters that are not valid Roman
-  /// numerals, it will return a `Failure` with a [RomanNumeralParseException].
-  ///
-  /// If the input string is a valid Roman numeral, it will return a `Success`
-  /// containing a [RomanNumerals] object.
-  ///
-  /// Example:
-  ///
+  /// Allows additive repetition (e.g. `"IIII"` is accepted as 4, even though
+  /// the canonical form is `"IV"`).
   int? toInt() {
     // go backwards through the digits
     var total = 0;

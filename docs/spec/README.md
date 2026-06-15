@@ -13,7 +13,6 @@ toc-title: "Contents"
 `betto_schema` is a pure-Dart library that provides JSON Schema validation
 primitives aligned with the
 [JSON Schema Validation 2020-12 specification](https://json-schema.org/draft/2020-12/json-schema-validation.html).
-It is used as the low-level schema layer for KMDB's collection schema feature.
 
 The library exposes three layers:
 
@@ -23,9 +22,9 @@ The library exposes three layers:
 - **Layer 2 — Rule tree** (`schema_rule.dart`, `schema_parser.dart`):
   `SchemaRule` subtypes that wrap Layer 1 validators, adding dot-path tracking
   and full-pass violation collection.
-- **Layer 3 — Porcelain** (`json_schema_validator.dart`):
-  `JsonSchemaValidator`, a thin convenience wrapper that accepts a JSON Schema
-  string or map and returns a `List<SchemaViolation>`.
+- **Layer 3 — Porcelain** (`json_schema_validator.dart`): `JsonSchemaValidator`,
+  a thin convenience wrapper that accepts a JSON Schema string or map and
+  returns a `List<SchemaViolation>`.
 
 Layer 1 must never import Layer 2 or Layer 3. Layer 3 only calls Layer 2.
 
@@ -45,8 +44,8 @@ list (logical OR). For example, `{"type": ["string", "null"]}` accepts both
 strings and `null`.
 
 Supported type names: `string`, `number`, `integer`, `boolean`, `array`,
-`object`, `null`. Unknown type names are silently accepted in Layer 2 (the
-rule tree) and silently rejected in Layer 1 (the programmatic validators).
+`object`, `null`. Unknown type names are silently accepted in Layer 2 (the rule
+tree) and silently rejected in Layer 1 (the programmatic validators).
 
 ### `integer` sub-type
 
@@ -56,8 +55,8 @@ fractional part". This means:
 - A Dart `int` is always a valid integer.
 - A Dart `double` with a zero fractional part (e.g. `1.0`, `-3.0`) is also a
   valid integer.
-- A Dart `double` with a non-zero fractional part (e.g. `3.14`) is **not**
-  a valid integer.
+- A Dart `double` with a non-zero fractional part (e.g. `3.14`) is **not** a
+  valid integer.
 - Non-finite doubles (`double.nan`, `double.infinity`,
   `double.negativeInfinity`) are **not** valid integers. Although
   `double.nan % 1` produces `NaN` (not `0`), the `isFinite` guard makes this
@@ -66,24 +65,23 @@ fractional part". This means:
 
 ## `pattern` (§6.3.3)
 
-Regular expressions in the `pattern` keyword are **not implicitly anchored**.
-A pattern need only match *somewhere* within the string — it does not need to
+Regular expressions in the `pattern` keyword are **not implicitly anchored**. A
+pattern need only match _somewhere_ within the string — it does not need to
 match the entire string. This is identical to the behaviour of
 `RegExp.hasMatch()` in Dart.
 
-For example, `{"pattern": "foo"}` accepts `"foobar"`, `"barfoo"`, and
-`"foo"`.
+For example, `{"pattern": "foo"}` accepts `"foobar"`, `"barfoo"`, and `"foo"`.
 
-Callers who need a full-string match must anchor their pattern explicitly
-using `^` and `$` (e.g. `{"pattern": "^foo$"}`).
+Callers who need a full-string match must anchor their pattern explicitly using
+`^` and `$` (e.g. `{"pattern": "^foo$"}`).
 
-An empty pattern (`""`) always matches every string (correct per spec: an
-empty regex has at least one match at position 0 in any string).
+An empty pattern (`""`) always matches every string (correct per spec: an empty
+regex has at least one match at position 0 in any string).
 
 ## `const` (§6.1.3)
 
-The `const` keyword constrains the instance to be equal to the declared
-constant value. The value may be any JSON type, including `null`.
+The `const` keyword constrains the instance to be equal to the declared constant
+value. The value may be any JSON type, including `null`.
 
 The comparison uses structural (deep) equality. Nested `List` and `Map` values
 are compared element-by-element rather than by object identity. Primitive values
@@ -101,23 +99,23 @@ The `multipleOf` keyword validates that a numeric instance is an exact multiple
 of the declared divisor. Non-numeric instances are silently skipped (no
 violation).
 
-The keyword value must be a number strictly greater than zero. A divisor of
-zero is a schema-error guard: the rule produces a violation for any numeric
-value rather than throwing a Dart exception.
+The keyword value must be a number strictly greater than zero. A divisor of zero
+is a schema-error guard: the rule produces a violation for any numeric value
+rather than throwing a Dart exception.
 
 ### Floating-point safety
 
 The naive check `instance % divisor == 0` is numerically unsafe for decimal
-divisors because of IEEE-754 rounding. For example, `0.3 % 0.1` is
-approximately `2.77e-17`, not `0`. The implementation uses a quotient-based
-check: `(instance / divisor) - round(instance / divisor)` is tested against an
-epsilon of `1e-10`. This correctly identifies `0.3` as a multiple of `0.1`.
+divisors because of IEEE-754 rounding. For example, `0.3 % 0.1` is approximately
+`2.77e-17`, not `0`. The implementation uses a quotient-based check:
+`(instance / divisor) - round(instance / divisor)` is tested against an epsilon
+of `1e-10`. This correctly identifies `0.3` as a multiple of `0.1`.
 
 ## `uniqueItems` (§6.4.3)
 
 The `uniqueItems` keyword validates that all elements in an array are pairwise
-distinct. It activates only when the keyword value is exactly `true`; a value
-of `false` (or absence) means no uniqueness constraint is applied. Non-array
+distinct. It activates only when the keyword value is exactly `true`; a value of
+`false` (or absence) means no uniqueness constraint is applied. Non-array
 instances are silently skipped.
 
 Uniqueness uses structural (deep) equality — the same `DeepCollectionEquality`
@@ -152,13 +150,13 @@ keyword value is an object where each key is a **trigger** property name that
 maps to an array of **dependent** property names.
 
 For each trigger key that is present in the instance, all listed dependent
-property names must also be present. If the trigger key is absent, no
-validation is performed for that entry (the dependency is not activated).
+property names must also be present. If the trigger key is absent, no validation
+is performed for that entry (the dependency is not activated).
 
 One `SchemaViolation` is emitted per missing dependent property. The violation
-path follows the same format as `required`: the path is the dot-notation path
-to the object, followed by the missing property name
-(e.g. `"payment.billingAddress"`). The violation message is
+path follows the same format as `required`: the path is the dot-notation path to
+the object, followed by the missing property name (e.g.
+`"payment.billingAddress"`). The violation message is
 `"required field is missing"`, consistent with `RequiredRule`.
 
 An empty dependent list (`"trigger": []`) always passes when the trigger is
@@ -187,8 +185,8 @@ single `ContainsRule`.
 every other array-keyword rule.
 
 **Empty sub-schema** (`contains: {}`) matches every element, so
-`minContains`/`maxContains` effectively become array-count constraints
-(e.g. `{"contains": {}, "minContains": 3}` requires at least three elements).
+`minContains`/`maxContains` effectively become array-count constraints (e.g.
+`{"contains": {}, "minContains": 3}` requires at least three elements).
 
 ## `prefixItems` (§6.4.1) and boolean `items`
 
@@ -217,20 +215,19 @@ is a valid boolean schema meaning "always invalid".
   elements beyond the prefix otherwise) is rejected unconditionally.
 - `items: <schema>` — the schema is applied to every element in scope.
 
-Violation paths for positional elements use bracket notation, e.g. `[0]`,
-`[1]`.
+Violation paths for positional elements use bracket notation, e.g. `[0]`, `[1]`.
 
 ## `patternProperties` (§6.5.5)
 
 A map of ECMA-262 regex strings to sub-schemas. For each property in the
 instance, every pattern that matches the property name (unanchored, using
 `RegExp.hasMatch`) causes the associated sub-schema to be applied to the
-property value. A property may be matched by zero, one, or more patterns —
-every matching sub-schema is applied and all violations are collected.
+property value. A property may be matched by zero, one, or more patterns — every
+matching sub-schema is applied and all violations are collected.
 
 **Key points:**
 
-- Pattern matching is **unanchored**: a pattern need only match *any substring*
+- Pattern matching is **unanchored**: a pattern need only match _any substring_
   of the property name, not the full name. Use `^` and `$` anchors to force
   full-name matching.
 - An invalid regex key throws `FormatException` at **parse time** (not at
@@ -247,9 +244,9 @@ it skips properties declared in `properties`.
 
 ## `additionalProperties` — schema form (§6.5.6)
 
-In addition to `additionalProperties: false` (already supported), the parser
-now handles a **schema-valued** `additionalProperties`. Properties not covered
-by `properties` or `patternProperties` must validate against this sub-schema.
+In addition to `additionalProperties: false` (already supported), the parser now
+handles a **schema-valued** `additionalProperties`. Properties not covered by
+`properties` or `patternProperties` must validate against this sub-schema.
 
 **Evaluated-property tracking:**
 
@@ -260,8 +257,8 @@ The set of "evaluated" keys is determined at parse time:
    `PatternPropertiesRule`).
 
 `AdditionalPropertiesSchemaRule` receives both the static declared-key set and
-the compiled pattern list. At validation time it skips any key that is either
-in the declared set or matched by a pattern, then applies the sub-schema to the
+the compiled pattern list. At validation time it skips any key that is either in
+the declared set or matched by a pattern, then applies the sub-schema to the
 remaining keys.
 
 **Guard removal:** the previous `parsedProperties != null` guard that prevented
@@ -270,26 +267,26 @@ removed. `additionalProperties` (both `false` and schema form) now activates
 regardless of whether `properties` is present. When neither `properties` nor
 `patternProperties` is declared, every key is "additional".
 
-**`additionalProperties: false` with `patternProperties`:**
-Uses `AdditionalPropertiesSchemaRule` with an `AlwaysInvalidRule` payload so
-that pattern-matched keys are correctly excluded from the "additional" set
-before rejection.
+**`additionalProperties: false` with `patternProperties`:** Uses
+`AdditionalPropertiesSchemaRule` with an `AlwaysInvalidRule` payload so that
+pattern-matched keys are correctly excluded from the "additional" set before
+rejection.
 
 ## `format` — `uri` and `urn`
 
 ### `uri`
 
-The `uri` format validator uses Dart's `Uri.tryParse()`. This is
-**intentionally lenient**: it accepts any string that Dart can parse as a
-URI reference, including relative references and bare words, as well as all
-registered URI schemes.
+The `uri` format validator uses Dart's `Uri.tryParse()`. This is **intentionally
+lenient**: it accepts any string that Dart can parse as a URI reference,
+including relative references and bare words, as well as all registered URI
+schemes.
 
 In particular, a valid URN (e.g. `urn:isbn:0451450523`) **is** a valid URI
 because `urn` is a registered URI scheme per RFC 3986. The `uri` validator
 therefore accepts both http URLs and valid URNs.
 
-Callers who need to enforce absolute URIs should check `Uri.isAbsolute` or
-apply additional constraints beyond this format validator.
+Callers who need to enforce absolute URIs should check `Uri.isAbsolute` or apply
+additional constraints beyond this format validator.
 
 ### `urn`
 
@@ -302,22 +299,22 @@ rejected.
 
 ### `ipv4`
 
-The `ipv4` format validator accepts dotted-quad IPv4 address notation per
-RFC 2673 §3.2. Each of the four decimal octets must be in the range 0–255.
+The `ipv4` format validator accepts dotted-quad IPv4 address notation per RFC
+2673 §3.2. Each of the four decimal octets must be in the range 0–255.
 
-**Leading zeros are rejected.** `01.0.0.0` is invalid because a leading zero
-is ambiguous (octal vs. decimal interpretation). The validator uses a per-octet
-regex alternation (`25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d`) that enforces both
-the range constraint and the no-leading-zero constraint in a single pass.
+**Leading zeros are rejected.** `01.0.0.0` is invalid because a leading zero is
+ambiguous (octal vs. decimal interpretation). The validator uses a per-octet
+regex alternation (`25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d`) that enforces both the
+range constraint and the no-leading-zero constraint in a single pass.
 
 Addresses with fewer than four octets, more than four octets, or non-numeric
 content are rejected.
 
 ### `ipv6`
 
-The `ipv6` format validator accepts IPv6 address strings per RFC 4291 §2.2.
-It is implemented without `dart:io` (`InternetAddress`) so that the validator
-works in browser/web environments where `dart:io` is unavailable.
+The `ipv6` format validator accepts IPv6 address strings per RFC 4291 §2.2. It
+is implemented without `dart:io` (`InternetAddress`) so that the validator works
+in browser/web environments where `dart:io` is unavailable.
 
 Supported forms:
 
@@ -325,9 +322,9 @@ Supported forms:
 - All compressed (`::`) positions: `::`, `::1`, `1::`, `1::2`
 - IPv4-mapped tail: `::ffff:192.168.1.1`, `1:2:3:4:5:6:1.2.3.4`
 
-Hex groups are case-insensitive. Strings containing more than one `::`,
-more than eight groups in the full form, or hex groups with more than four
-digits are rejected.
+Hex groups are case-insensitive. Strings containing more than one `::`, more
+than eight groups in the full form, or hex groups with more than four digits are
+rejected.
 
 Zone IDs (`%eth0` suffixes) are not part of the RFC 4291 text representation
 grammar and are rejected by this validator.
@@ -342,13 +339,14 @@ Rules:
 - Labels must match `[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?` — that is,
   start and end with an alphanumeric character; interior characters may be
   alphanumeric or hyphen.
-- The total hostname length (all labels and dots) must not exceed 253 characters.
+- The total hostname length (all labels and dots) must not exceed 253
+  characters.
 - **Trailing dots are rejected.** The format targets RFC 1123 host names, not
   DNS zone-file fully-qualified domain names.
 - Matching is case-insensitive (`EXAMPLE.COM` is valid).
 
-Underscores, spaces, `@`, and other non-alphanumeric/hyphen characters in
-labels are rejected.
+Underscores, spaces, `@`, and other non-alphanumeric/hyphen characters in labels
+are rejected.
 
 ### `idn-hostname`
 
@@ -374,20 +372,19 @@ What is validated:
 
 ### `uri-reference`
 
-The `uri-reference` format validator accepts URI references per RFC 3986 §4.1.
-A URI reference is either an absolute URI (e.g. `https://example.com`) or a
+The `uri-reference` format validator accepts URI references per RFC 3986 §4.1. A
+URI reference is either an absolute URI (e.g. `https://example.com`) or a
 relative reference (e.g. `/path/to`, `../foo`, `#section`, `""`).
 
 The validator uses a structural approach:
 
 1. `Uri.tryParse` must succeed (handles structural parsing).
-2. The string must not contain characters that are illegal in both absolute
-   URIs and relative references: unescaped spaces, ASCII control characters
+2. The string must not contain characters that are illegal in both absolute URIs
+   and relative references: unescaped spaces, ASCII control characters
    (0x00–0x1F, 0x7F), or literal angle brackets (`<`, `>`).
 
-The empty string is a valid `uri-reference` (it refers to the current
-document). Percent-encoded spaces (e.g. `%20`) are valid; literal spaces are
-not.
+The empty string is a valid `uri-reference` (it refers to the current document).
+Percent-encoded spaces (e.g. `%20`) are valid; literal spaces are not.
 
 ## `format` — JSON Pointer formats
 
@@ -412,8 +409,8 @@ Strings that do not begin with `/` (and are not the empty string) are invalid.
 The `relative-json-pointer` format validator accepts Relative JSON Pointer
 strings per the IETF draft (bhutton/relative-json-pointer).
 
-A Relative JSON Pointer begins with a non-negative integer prefix (the number
-of steps to walk up the document tree) followed by either:
+A Relative JSON Pointer begins with a non-negative integer prefix (the number of
+steps to walk up the document tree) followed by either:
 
 - `#` — referring to the key or index of the referenced location in its parent.
 - A JSON Pointer (including the empty string) — applied after walking up.

@@ -18,15 +18,17 @@ import 'package:collection/collection.dart';
 import 'formats/formats_base.dart';
 import 'schema_violation.dart';
 
-/// Internal representation of a parsed JSON Schema.
+/// Compiled representation of a JSON Schema keyword group.
 ///
 /// Each [SchemaRule] subtype corresponds to one keyword group from the JSON
-/// Schema subset supported by KMDB (spec §25). Rules validate a runtime
+/// Schema subset supported by this package. Rules validate a runtime
 /// [dynamic] value and return every [SchemaViolation] found — all rules are
 /// always evaluated so callers receive the complete list in one pass.
 ///
-/// Rules are not exposed publicly; callers work through [SchemaParser] and
-/// [SchemaManager].
+/// Rule trees are produced by [SchemaParser.parse] and can also be constructed
+/// directly for programmatic schema building (see the examples in `example/`).
+/// [JsonSchemaValidator] is a higher-level convenience that handles both parsing
+/// and validation in a single call.
 sealed class SchemaRule {
   const SchemaRule();
 
@@ -198,7 +200,16 @@ final class PropertiesRule extends SchemaRule {
 
 /// Rejects map keys that are not in the declared set.
 ///
-/// Corresponds to `additionalProperties: false` in JSON Schema.
+/// Corresponds to `additionalProperties: false` in JSON Schema for programmatic
+/// schema construction where no `patternProperties` are involved.
+///
+/// **Limitation:** this rule has no knowledge of [PatternPropertiesRule]. If
+/// both are included in the same [CompositeRule], keys matched by a pattern
+/// will still be rejected as "additional". For schemas that combine
+/// `additionalProperties` with `patternProperties`, use
+/// [AdditionalPropertiesSchemaRule] with an [AlwaysInvalidRule] payload and
+/// supply the relevant [AdditionalPropertiesSchemaRule.patternRegexes] —
+/// this is what [SchemaParser] always produces.
 final class AdditionalPropertiesRule extends SchemaRule {
   const AdditionalPropertiesRule(this.allowed);
 

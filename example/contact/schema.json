@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Contact",
+  "description": "An address book entry.",
+  "type": "object",
+  "required": ["name", "email"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "email": {
+      "type": "string",
+      "format": "email"
+    },
+    "phone": {
+      "type": "string",
+      "pattern": "^\\+[1-9]\\d{6,14}$",
+      "description": "E.164 international format: + followed by 7–15 digits, first digit non-zero."
+    },
+    "website": {
+      "type": "string",
+      "format": "uri"
+    },
+    "birthday": {
+      "type": "string",
+      "format": "date",
+      "description": "YYYY-MM-DD calendar date."
+    },
+    "lastContacted": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 date-time, e.g. 2026-06-01T14:30:00Z."
+    },
+    "address": {
+      "type": "object",
+      "required": ["city", "country"],
+      "properties": {
+        "street": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string",
+          "minLength": 1
+        },
+        "country": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 2,
+          "description": "ISO 3166-1 alpha-2 country code, e.g. 'DE', 'US'."
+        }
+      },
+      "additionalProperties": false
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 2000
+    }
+  },
+  "additionalProperties": false
+}

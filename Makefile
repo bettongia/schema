@@ -22,7 +22,6 @@ format_check:
 .PHONY: format_check
 
 analyze:
-	# flutter analyze
 	dart analyze
 .PHONY: analyze
 
@@ -76,7 +75,7 @@ site/styles/styles.css: docs/styles/styles.css | site/
 	cp docs/styles/styles.css site/styles/styles.css
 
 site/api/index.html:
-	dart doc -o site/api/index.html
+	dart doc -o site/api
 
 # END: Documentation site tasks
 

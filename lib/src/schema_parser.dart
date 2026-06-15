@@ -16,10 +16,6 @@ import 'schema_rule.dart';
 
 /// Parses a JSON Schema subset map into a [SchemaRule] tree.
 ///
-/// The supported keyword set is defined in spec §25 (`schemaModelVersion: 1`).
-/// Unknown keywords are silently ignored so that schemas written by a newer
-/// KMDB version can be partially interpreted by an older one.
-///
 /// Example:
 /// ```dart
 /// final rule = SchemaParser().parse({

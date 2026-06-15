@@ -1,0 +1,9 @@
+{
+  "title": "Some Obscure Title",
+  "authors": ["An Author"],
+  "isbn": "978-0-000-00000-0",
+  "publishedDate": "2020-13-01",
+  "edition": 0,
+  "genres": ["mystery"],
+  "unknownField": "not allowed"
+}
