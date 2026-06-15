@@ -297,3 +297,128 @@ The `urn` format validator uses `Urn.tryParse()` (the `Urn` class from
 `lib/src/formats/urn.dart`), which strictly validates URN syntax
 (`urn:<nid>:<nss>`). Plain http/https URLs and other non-URN strings are
 rejected.
+
+## `format` — network address formats
+
+### `ipv4`
+
+The `ipv4` format validator accepts dotted-quad IPv4 address notation per
+RFC 2673 §3.2. Each of the four decimal octets must be in the range 0–255.
+
+**Leading zeros are rejected.** `01.0.0.0` is invalid because a leading zero
+is ambiguous (octal vs. decimal interpretation). The validator uses a per-octet
+regex alternation (`25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d`) that enforces both
+the range constraint and the no-leading-zero constraint in a single pass.
+
+Addresses with fewer than four octets, more than four octets, or non-numeric
+content are rejected.
+
+### `ipv6`
+
+The `ipv6` format validator accepts IPv6 address strings per RFC 4291 §2.2.
+It is implemented without `dart:io` (`InternetAddress`) so that the validator
+works in browser/web environments where `dart:io` is unavailable.
+
+Supported forms:
+
+- Full eight-group form: `2001:db8:85a3:0:0:8a2e:370:7334`
+- All compressed (`::`) positions: `::`, `::1`, `1::`, `1::2`
+- IPv4-mapped tail: `::ffff:192.168.1.1`, `1:2:3:4:5:6:1.2.3.4`
+
+Hex groups are case-insensitive. Strings containing more than one `::`,
+more than eight groups in the full form, or hex groups with more than four
+digits are rejected.
+
+Zone IDs (`%eth0` suffixes) are not part of the RFC 4291 text representation
+grammar and are rejected by this validator.
+
+### `hostname`
+
+The `hostname` format validator accepts DNS hostnames per RFC 1123 §2.1.
+
+Rules:
+
+- Each dot-separated label must be 1–63 characters.
+- Labels must match `[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?` — that is,
+  start and end with an alphanumeric character; interior characters may be
+  alphanumeric or hyphen.
+- The total hostname length (all labels and dots) must not exceed 253 characters.
+- **Trailing dots are rejected.** The format targets RFC 1123 host names, not
+  DNS zone-file fully-qualified domain names.
+- Matching is case-insensitive (`EXAMPLE.COM` is valid).
+
+Underscores, spaces, `@`, and other non-alphanumeric/hyphen characters in
+labels are rejected.
+
+### `idn-hostname`
+
+The `idn-hostname` format validator accepts internationalized hostnames per
+RFC 5890. This is a **best-effort check**, not full IDNA 2008 / Punycode
+conformance.
+
+Full IDNA 2008 conformance requires Punycode encoding and Unicode normalization
+(NFKC) that are not available in a pure-Dart context without external
+dependencies. This may be upgraded in v1 if a suitable pure-Dart IDNA library
+becomes available.
+
+What is validated:
+
+- Any ASCII label valid per RFC 1123 (see `hostname` above).
+- Labels containing Unicode characters are accepted if they satisfy the
+  structural rules: no leading or trailing hyphen, 1–63 characters per label,
+  total ≤ 253 characters, and no ASCII control characters, spaces, or
+  URL-reserved punctuation in the label.
+- Trailing dots are rejected (same as `hostname`).
+
+## `format` — URI reference formats
+
+### `uri-reference`
+
+The `uri-reference` format validator accepts URI references per RFC 3986 §4.1.
+A URI reference is either an absolute URI (e.g. `https://example.com`) or a
+relative reference (e.g. `/path/to`, `../foo`, `#section`, `""`).
+
+The validator uses a structural approach:
+
+1. `Uri.tryParse` must succeed (handles structural parsing).
+2. The string must not contain characters that are illegal in both absolute
+   URIs and relative references: unescaped spaces, ASCII control characters
+   (0x00–0x1F, 0x7F), or literal angle brackets (`<`, `>`).
+
+The empty string is a valid `uri-reference` (it refers to the current
+document). Percent-encoded spaces (e.g. `%20`) are valid; literal spaces are
+not.
+
+## `format` — JSON Pointer formats
+
+### `json-pointer`
+
+The `json-pointer` format validator accepts JSON Pointer strings per RFC 6901.
+
+A JSON Pointer is either:
+
+- The empty string `""` — refers to the root of the document.
+- A sequence of reference tokens each prefixed by `/` — e.g. `/foo/bar/0`.
+
+Within a reference token, the tilde character `~` must only appear as the
+two-character escape sequences `~0` (representing `~`) or `~1` (representing
+`/`). A bare `~` or an escape sequence other than `~0`/`~1` (e.g. `~2`) is
+invalid.
+
+Strings that do not begin with `/` (and are not the empty string) are invalid.
+
+### `relative-json-pointer`
+
+The `relative-json-pointer` format validator accepts Relative JSON Pointer
+strings per the IETF draft (bhutton/relative-json-pointer).
+
+A Relative JSON Pointer begins with a non-negative integer prefix (the number
+of steps to walk up the document tree) followed by either:
+
+- `#` — referring to the key or index of the referenced location in its parent.
+- A JSON Pointer (including the empty string) — applied after walking up.
+
+**Leading zeros in the integer prefix are rejected** unless the prefix is
+exactly `"0"`. So `01` and `00` are invalid, but `0` is valid.
+
+Examples: `0`, `1`, `0#`, `1#`, `0/foo`, `2/a/b`, `10/foo`.

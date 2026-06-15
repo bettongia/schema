@@ -21,7 +21,9 @@ import 'doi.dart';
 import 'duration.dart';
 import 'email.dart';
 import 'hex.dart';
+import 'idn_hostname.dart';
 import 'isbn.dart';
+import 'ipv6.dart';
 import 'lang.dart';
 import 'roman.dart';
 import 'urn.dart';
@@ -31,7 +33,9 @@ export 'doi.dart';
 export 'duration.dart';
 export 'email.dart';
 export 'hex.dart';
+export 'idn_hostname.dart';
 export 'isbn.dart';
+export 'ipv6.dart';
 export 'lang.dart';
 export 'roman.dart';
 export 'urn.dart';
@@ -152,6 +156,108 @@ class StringFormatValidator implements StringValidatorService {
       'doi',
       'The string represents a valid DOI',
       DOI.isValid,
+    ),
+    'ipv4': StringValidator(
+      'ipv4',
+      'A string instance is valid against this attribute if it is a valid '
+          'IPv4 address according to RFC 2673 §3.2: four decimal octets '
+          '0–255 separated by dots. Leading zeros in any octet are rejected '
+          'to avoid ambiguous octal interpretation.',
+      // Per-octet alternation rejects leading zeros and values > 255 in a
+      // single pass without post-processing.
+      (value) => RegExp(
+        r'^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)'
+        r'\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)'
+        r'\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)'
+        r'\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)$',
+      ).hasMatch(value),
+    ),
+    'ipv6': StringValidator(
+      'ipv6',
+      'A string instance is valid against this attribute if it is a valid '
+          'IPv6 address according to RFC 4291 §2.2. Both full eight-group '
+          'and compressed (::) forms are accepted, including IPv4-mapped '
+          'addresses. Validation uses a pure-Dart approach (no dart:io) '
+          'so that the validator works in browser environments.',
+      Ipv6.isValid,
+    ),
+    'hostname': StringValidator(
+      'hostname',
+      'A string instance is valid against this attribute if it is a valid '
+          'Internet hostname per RFC 1123 §2.1. Labels are composed of '
+          'ASCII letters, digits, and hyphens; must not start or end with '
+          'a hyphen; must be 1–63 characters each; and the total length '
+          'must not exceed 253 characters. Trailing dots are rejected. '
+          'Matching is case-insensitive.',
+      // Labels: start/end with alphanum, interior may include hyphens.
+      // Single-char labels (one alphanumeric) are valid.
+      (value) {
+        if (value.isEmpty || value.endsWith('.') || value.length > 253) {
+          return false;
+        }
+        final labelPattern = RegExp(
+          r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$',
+        );
+        return value
+            .split('.')
+            .every((label) => label.isNotEmpty && labelPattern.hasMatch(label));
+      },
+    ),
+    'idn-hostname': StringValidator(
+      'idn-hostname',
+      'A string instance is valid against this attribute if it is a valid '
+          'internationalized hostname per RFC 5890. This is a best-effort '
+          'check: ASCII hostnames are validated per RFC 1123; labels '
+          'containing Unicode characters are accepted if they satisfy the '
+          'structural rules (no leading/trailing hyphen, label ≤ 63 chars, '
+          'total ≤ 253 chars). Full IDNA 2008 / Punycode conformance is not '
+          'enforced; that requires Punycode processing unavailable in '
+          'pure Dart without external dependencies.',
+      IdnHostname.isValid,
+    ),
+    'uri-reference': StringValidator(
+      'uri-reference',
+      'A string instance is valid against this attribute if it is a valid '
+          'URI reference per RFC 3986 §4.1 — either an absolute URI or a '
+          'relative reference. The check uses a structural approach: '
+          'Uri.tryParse must succeed AND the string must not contain '
+          'characters that are illegal in both forms (unescaped spaces, '
+          'ASCII control characters, or unencoded angle brackets).',
+      (value) {
+        // Reject strings containing unescaped spaces, ASCII control
+        // characters (0x00–0x1F, 0x7F), or literal angle brackets.
+        // These are illegal in both absolute URIs and relative references
+        // per RFC 3986, regardless of how permissive Uri.tryParse is.
+        if (RegExp(r'[\x00-\x1F\x7F <>\[\]\\^`{|}]').hasMatch(value)) {
+          return false;
+        }
+        return Uri.tryParse(value) != null;
+      },
+    ),
+    'json-pointer': StringValidator(
+      'json-pointer',
+      'A string instance is valid against this attribute if it is a valid '
+          'JSON Pointer per RFC 6901. A JSON Pointer is either an empty '
+          'string (pointing to the root document) or a sequence of '
+          'reference tokens each prefixed by /. Within a token, ~ must '
+          'only appear as ~0 (representing ~) or ~1 (representing /).',
+      // Regex: empty string OR one-or-more /token sequences where each
+      // token contains any character except ~ (which must be ~0 or ~1).
+      (value) => RegExp(r'^(/([^~]|~[01])*)*$').hasMatch(value),
+    ),
+    'relative-json-pointer': StringValidator(
+      'relative-json-pointer',
+      'A string instance is valid against this attribute if it is a valid '
+          'Relative JSON Pointer per the IETF draft (bhutton). A Relative '
+          'JSON Pointer begins with a non-negative integer (no leading zeros '
+          'unless the value is 0) followed by either # (referring to the '
+          'key/index of the referenced location) or a JSON Pointer '
+          '(including the empty string).',
+      // Regex breakdown:
+      //   (0|[1-9][0-9]*)   — non-negative integer, no leading zeros
+      //   (#|(/([^~]|~[01])*)*)  — either '#' or a JSON Pointer
+      (value) =>
+          RegExp(r'^(0|[1-9][0-9]*)(#|(/([^~]|~[01])*)*)$').hasMatch(value),
     ),
   };
 }
