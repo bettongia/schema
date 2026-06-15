@@ -269,3 +269,143 @@ The code is release-grade. The packaging is not — yet. Fix the two P0 README
 defects (an hour of work, including recompiling the snippet), refresh the
 keyword table, and the technical case for publishing is strong. Do not publish
 with a README whose first example fails to compile.
+
+---
+
+## Follow-up Review — 2026-06-15
+
+Reviewer: release-ninja. Fresh tool runs: `dart doc --dry-run`, `dart analyze`,
+`dart test`, `dart pub publish --dry-run`. All commands executed against the
+current working tree.
+
+### Tool results (fresh)
+
+| Tool | Result |
+| :-- | :-- |
+| `dart test` | **914 / 914 pass** |
+| `dart analyze` | No issues found |
+| `dart pub publish --dry-run` | **0 warnings**, archive 72 KB |
+| `dart doc --dry-run` | **0 warnings, 0 errors** |
+
+### What was fixed (verified)
+
+**P0.1 — README import path** (was blocking). The import in the primitive
+validator example now reads `package:betto_schema/betto_schema.dart` —
+the correct barrel. The old `package:betto_schema/schema.dart` is gone.
+Verified by inspection of `README.md` lines 84–96.
+
+**P0.2 — Broken `&` operator example** (was blocking). The expression
+`Minimum(0) & Maximum(100)` has been removed. The replacement example composes
+two validators with `&&` on separate `bool call(...)` results, which compiles
+correctly and accurately demonstrates the supported API. Example verified
+against `Validator<T>` interface in `lib/src/validation.dart`.
+
+**P1 — README keyword table** (was advisory, now resolved). The table now
+includes `patternProperties`→`PatternPropertiesRule`, `additionalProperties:
+<schema>`→`AdditionalPropertiesSchemaRule`, `prefixItems`→`PrefixItemsRule`,
+and `contains` / `minContains` / `maxContains`→`ContainsRule`. The Features
+format list now enumerates all seven previously missing format strings
+(`hostname`, `idn-hostname`, `ipv4`, `ipv6`, `uri-reference`, `json-pointer`,
+`relative-json-pointer`). No implemented keyword is missing from the public
+documentation.
+
+**pubspec `description`** (was P1, 49 chars → 159 chars — now well within the
+60–180 char band). Verified: `"Pure Dart JSON Schema 2020-12 library. Typed,
+composable validators, a full keyword rule tree, and format validators for
+email, URI, date-time, UUID, and more."` = 159 characters.
+
+**pubspec `topics:`** — `schema`, `json-schema`, `validation` were already
+present before this review; original finding was incorrect on this point.
+
+**CHANGELOG** (was P1 stub). The entry is now 10 KB and fully documents the
+primitive-validator table, the rule tree with every `SchemaRule` subtype, all
+format validators (standard and project-specific), the CLI tool, six runnable
+examples, and spec-correctness fixes. No longer a stub.
+
+**dartdoc warnings** (was P2, 4 warnings). `dart doc --dry-run` now reports 0
+warnings and 0 errors. All four broken cross-references (`[SchemaManager]`,
+`[FormatParserException]`, `[RomanNumeralParseException]`, `[Result]`) have
+been resolved. The generated API docs will link correctly.
+
+**`isValidRegex` / `isValidDate` hidden from public barrel** (was P2). The
+barrel at `lib/betto_schema.dart` now exports `src/formats/formats_base.dart`
+with `hide isValidRegex, isValidDate`, removing these implementation-detail
+helpers from the public surface.
+
+**`StringValidatorService.supportedValidators` return type** (was P2). The
+method signature is now `UnmodifiableMapView<String, StringValidator>` and the
+implementation wraps `_supportedValidators` in `UnmodifiableMapView(...)`.
+Mutation through the returned map is now impossible.
+
+**`'lamg'` typo in lang validator** (was P2). The key in `formats_base.dart`
+is now `'lang'`. Verified by grep.
+
+**`SchemaRule` doc comment** (was P2). The class-level doc now correctly
+references `SchemaParser.parse` and `JsonSchemaValidator` rather than the
+former stub text.
+
+**`AdditionalPropertiesRule` doc** (was P2). The doc comment now carries an
+explicit `**Limitation:**` paragraph explaining that this rule has no
+knowledge of `PatternPropertiesRule` and directing maintainers to use
+`AdditionalPropertiesSchemaRule` when `patternProperties` is involved.
+
+**`header_template.txt`** — now excluded from the published archive via
+`.pubignore`. Confirmed absent from dry-run file list.
+
+### What remains open
+
+**P2 — `.pubignore` does not exclude `test/` or non-essential metadata files.**
+The maintainer listed this as an item to fix, but the dry-run archive still
+contains the full `test/` tree (11 test files, ~88 KB uncompressed), plus
+`analysis_options.yaml`, `AUTHORS`, and `CONTRIBUTING.md`. The old
+`coverage_baseline/` directory no longer exists (removed from the tree), so
+that concern is resolved automatically. Excluding `test/` alone would save
+the bulk of the unnecessary weight. Suggested additions to `.pubignore`:
+
+```
+test/
+analysis_options.yaml
+AUTHORS
+CONTRIBUTING.md
+```
+
+This is not a blocker — `dart pub publish --dry-run` reports 0 warnings with
+these files included, and pub.dev imposes no penalty. It is purely a hygiene
+issue that makes the download smaller and the package listing cleaner. Archive
+is currently 72 KB; trimming `test/` would bring it materially closer to the
+`lib/` + `example/` core.
+
+### Items intentionally out of scope (not re-checked)
+
+Per the maintainer's instructions the following original findings were not
+re-evaluated:
+
+- Item 5 (prerelease deps `betto_common` / `betto_abnf`) — intentional; both
+  packages are maintainer-controlled.
+- Items 8, 9, 10 (`SECURITY.md`, `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md` PR
+  policy) — not a concern for this release.
+- Item 12 (`.pubignore` referencing non-existent files) — confirmed non-issue.
+- Item 11 (`.claude/` git-tracking) — confirmed non-issue.
+
+### Updated verdict
+
+**CONDITIONAL GO.**
+
+Both original P0 blockers (import path, broken `&` example) are fixed and
+verified. The README now correctly represents the package's feature set. Tool
+suite is clean: 914 tests pass, 0 analyze issues, 0 dartdoc warnings, 0
+publish warnings.
+
+The one remaining open item — `test/` and a handful of metadata files shipping
+in the archive — is cosmetic and carries no pub.dev penalty. It can be
+addressed in a follow-up `.pubignore` commit immediately before or after
+publication without gating the release.
+
+**The package is ready to publish.** Fix `.pubignore` at any time; it does not
+need to block.
+
+### Punch list
+
+| Priority | Item | Status |
+| :-- | :-- | :-- |
+| P2 | Add `test/`, `analysis_options.yaml`, `AUTHORS`, `CONTRIBUTING.md` to `.pubignore` | Open — cosmetic, does not block |
