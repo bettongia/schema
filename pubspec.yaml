@@ -3,7 +3,7 @@ description: >-
   Pure Dart JSON Schema 2020-12 library. Typed, composable validators, a full
   keyword rule tree, and format validators for email, URI, date-time, UUID, and
   more.
-version: 0.1.0-dev.1
+version: 0.1.0-dev.2
 repository: https://github.com/bettongia/schema
 homepage: https://bettongia.github.io/schema/
 issue_tracker: https://github.com/bettongia/schema/issues

@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.1.0-dev.2
+
 ## 0.1.0-dev.1
 
 Initial development release. Pure Dart JSON Schema validation primitives aligned
@@ -130,17 +132,17 @@ Deferred to v1: `idn-email`, `iri`, `iri-reference`, `uri-template`.
 
 Six runnable examples are included:
 
-| Entry point                     | Demonstrates                                                                                    |
-| :------------------------------ | :---------------------------------------------------------------------------------------------- |
-| `example/main.dart`             | Parsing a JSON Schema with `SchemaParser` and collecting `SchemaViolation`s                     |
-| `example/validators.dart`       | Composing `Validator` primitives directly (`MaximumLength`, `StringFormatValidator`)            |
-| `example/violation.dart`        | Constructing and printing `SchemaViolation` values                                              |
-| `example/book/main.dart`        | A book schema: enum genres, `prefixItems`, `additionalProperties`, `contains`, format strings   |
-| `example/contact/main.dart`     | A contact schema: nested address object, `email`/`uri`/`date` formats, `uniqueItems`, patterns |
-| `example/recipe/main.dart`      | A recipe schema: nested ingredient objects, numeric ranges, enum values, `uniqueItems`          |
+| Entry point                 | Demonstrates                                                                                   |
+| :-------------------------- | :--------------------------------------------------------------------------------------------- |
+| `example/main.dart`         | Parsing a JSON Schema with `SchemaParser` and collecting `SchemaViolation`s                    |
+| `example/validators.dart`   | Composing `Validator` primitives directly (`MaximumLength`, `StringFormatValidator`)           |
+| `example/violation.dart`    | Constructing and printing `SchemaViolation` values                                             |
+| `example/book/main.dart`    | A book schema: enum genres, `prefixItems`, `additionalProperties`, `contains`, format strings  |
+| `example/contact/main.dart` | A contact schema: nested address object, `email`/`uri`/`date` formats, `uniqueItems`, patterns |
+| `example/recipe/main.dart`  | A recipe schema: nested ingredient objects, numeric ranges, enum values, `uniqueItems`         |
 
-Each domain example (`book`, `contact`, `recipe`) ships with a `schema.json`
-and sample data files so it can be run standalone with `dart run`.
+Each domain example (`book`, `contact`, `recipe`) ships with a `schema.json` and
+sample data files so it can be run standalone with `dart run`.
 
 ### CLI
 
