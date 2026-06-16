@@ -28,12 +28,16 @@ The library exposes three layers:
 
 Layer 1 must never import Layer 2 or Layer 3. Layer 3 only calls Layer 2.
 
-# Keyword behaviour
+# A Vocabulary for Structural Validation
 
 This section documents the correct behaviour of each supported JSON Schema
-keyword, including edge cases and deviations from naïve implementations.
+keyword, including edge cases and deviations from naïve implementations. Only
+keywords with non-trivial or surprising implementation details are documented
+here; keywords that follow the specification without deviation are omitted.
 
-## `type` (§6.1.1)
+## Validation Keywords for Any Instance Type
+
+### `type`
 
 The `type` keyword value **MUST** be either a string or an array of strings.
 
@@ -47,7 +51,7 @@ Supported type names: `string`, `number`, `integer`, `boolean`, `array`,
 `object`, `null`. Unknown type names are silently accepted in Layer 2 (the rule
 tree) and silently rejected in Layer 1 (the programmatic validators).
 
-### `integer` sub-type
+#### `integer` sub-type
 
 The spec defines an integer as "a numeric instance whose value is without a
 fractional part". This means:
@@ -63,22 +67,7 @@ fractional part". This means:
   explicit and prevents a future "simplification" from inadvertently accepting
   non-finite values.
 
-## `pattern` (§6.3.3)
-
-Regular expressions in the `pattern` keyword are **not implicitly anchored**. A
-pattern need only match _somewhere_ within the string — it does not need to
-match the entire string. This is identical to the behaviour of
-`RegExp.hasMatch()` in Dart.
-
-For example, `{"pattern": "foo"}` accepts `"foobar"`, `"barfoo"`, and `"foo"`.
-
-Callers who need a full-string match must anchor their pattern explicitly using
-`^` and `$` (e.g. `{"pattern": "^foo$"}`).
-
-An empty pattern (`""`) always matches every string (correct per spec: an empty
-regex has at least one match at position 0 in any string).
-
-## `const` (§6.1.3)
+### `const`
 
 The `const` keyword constrains the instance to be equal to the declared constant
 value. The value may be any JSON type, including `null`.
@@ -93,7 +82,9 @@ as well.
 must be. A schema `{"const": null}` accepts the value `null` and rejects any
 non-null value.
 
-## `multipleOf` (§6.2.1)
+## Validation Keywords for Numeric Instances
+
+### `multipleOf`
 
 The `multipleOf` keyword validates that a numeric instance is an exact multiple
 of the declared divisor. Non-numeric instances are silently skipped (no
@@ -103,7 +94,7 @@ The keyword value must be a number strictly greater than zero. A divisor of zero
 is a schema-error guard: the rule produces a violation for any numeric value
 rather than throwing a Dart exception.
 
-### Floating-point safety
+#### Floating-point safety
 
 The naive check `instance % divisor == 0` is numerically unsafe for decimal
 divisors because of IEEE-754 rounding. For example, `0.3 % 0.1` is approximately
@@ -111,7 +102,26 @@ divisors because of IEEE-754 rounding. For example, `0.3 % 0.1` is approximately
 `(instance / divisor) - round(instance / divisor)` is tested against an epsilon
 of `1e-10`. This correctly identifies `0.3` as a multiple of `0.1`.
 
-## `uniqueItems` (§6.4.3)
+## Validation Keywords for Strings
+
+### `pattern`
+
+Regular expressions in the `pattern` keyword are **not implicitly anchored**. A
+pattern need only match _somewhere_ within the string — it does not need to
+match the entire string. This is identical to the behaviour of
+`RegExp.hasMatch()` in Dart.
+
+For example, `{"pattern": "foo"}` accepts `"foobar"`, `"barfoo"`, and `"foo"`.
+
+Callers who need a full-string match must anchor their pattern explicitly using
+`^` and `$` (e.g. `{"pattern": "^foo$"}`).
+
+An empty pattern (`""`) always matches every string (correct per spec: an empty
+regex has at least one match at position 0 in any string).
+
+## Validation Keywords for Arrays
+
+### `uniqueItems`
 
 The `uniqueItems` keyword validates that all elements in an array are pairwise
 distinct. It activates only when the keyword value is exactly `true`; a value of
@@ -126,43 +136,7 @@ which is simple and correct for the expected sizes of JSON Schema instances.
 
 Empty and single-element arrays are vacuously unique.
 
-## `minProperties` (§6.5.2)
-
-The `minProperties` keyword validates that an object (map) has at least the
-specified number of properties. Non-object instances are silently skipped. The
-bound is inclusive: `{"minProperties": 2}` accepts objects with exactly two
-properties. An empty object satisfies `{"minProperties": 0}`.
-
-## `maxProperties` (§6.5.1)
-
-The `maxProperties` keyword validates that an object (map) has at most the
-specified number of properties. Non-object instances are silently skipped. The
-bound is inclusive: `{"maxProperties": 3}` accepts objects with one, two, or
-three properties.
-
-When both `minProperties` and `maxProperties` are declared, a single
-`ObjectSizeRule` enforces both bounds and collects all violations in one pass.
-
-## `dependentRequired` (§6.5.4)
-
-The `dependentRequired` keyword declares conditional property dependencies. The
-keyword value is an object where each key is a **trigger** property name that
-maps to an array of **dependent** property names.
-
-For each trigger key that is present in the instance, all listed dependent
-property names must also be present. If the trigger key is absent, no validation
-is performed for that entry (the dependency is not activated).
-
-One `SchemaViolation` is emitted per missing dependent property. The violation
-path follows the same format as `required`: the path is the dot-notation path to
-the object, followed by the missing property name (e.g.
-`"payment.billingAddress"`). The violation message is
-`"required field is missing"`, consistent with `RequiredRule`.
-
-An empty dependent list (`"trigger": []`) always passes when the trigger is
-present.
-
-## `contains` (§6.4.5), `minContains` (§6.4.4), `maxContains` (§6.4.6)
+### `contains`, `minContains`, `maxContains`
 
 The `contains` keyword validates that at least one element of an array satisfies
 a sub-schema. `minContains` and `maxContains` refine how many elements must
@@ -188,7 +162,7 @@ every other array-keyword rule.
 `minContains`/`maxContains` effectively become array-count constraints (e.g.
 `{"contains": {}, "minContains": 3}` requires at least three elements).
 
-## `prefixItems` (§6.4.1) and boolean `items`
+### `prefixItems` and boolean `items`
 
 In JSON Schema 2020-12, `prefixItems` is an array of schemas applied
 positionally: element `i` is validated against `prefixItems[i]`. The existing
@@ -217,7 +191,45 @@ is a valid boolean schema meaning "always invalid".
 
 Violation paths for positional elements use bracket notation, e.g. `[0]`, `[1]`.
 
-## `patternProperties` (§6.5.5)
+## Validation Keywords for Objects
+
+### `minProperties`
+
+The `minProperties` keyword validates that an object (map) has at least the
+specified number of properties. Non-object instances are silently skipped. The
+bound is inclusive: `{"minProperties": 2}` accepts objects with exactly two
+properties. An empty object satisfies `{"minProperties": 0}`.
+
+### `maxProperties`
+
+The `maxProperties` keyword validates that an object (map) has at most the
+specified number of properties. Non-object instances are silently skipped. The
+bound is inclusive: `{"maxProperties": 3}` accepts objects with one, two, or
+three properties.
+
+When both `minProperties` and `maxProperties` are declared, a single
+`ObjectSizeRule` enforces both bounds and collects all violations in one pass.
+
+### `dependentRequired`
+
+The `dependentRequired` keyword declares conditional property dependencies. The
+keyword value is an object where each key is a **trigger** property name that
+maps to an array of **dependent** property names.
+
+For each trigger key that is present in the instance, all listed dependent
+property names must also be present. If the trigger key is absent, no validation
+is performed for that entry (the dependency is not activated).
+
+One `SchemaViolation` is emitted per missing dependent property. The violation
+path follows the same format as `required`: the path is the dot-notation path to
+the object, followed by the missing property name (e.g.
+`"payment.billingAddress"`). The violation message is
+`"required field is missing"`, consistent with `RequiredRule`.
+
+An empty dependent list (`"trigger": []`) always passes when the trigger is
+present.
+
+### `patternProperties`
 
 A map of ECMA-262 regex strings to sub-schemas. For each property in the
 instance, every pattern that matches the property name (unanchored, using
@@ -242,9 +254,9 @@ matching sub-schema is applied and all violations are collected.
 name. The `additionalProperties` rule skips pattern-evaluated properties just as
 it skips properties declared in `properties`.
 
-## `additionalProperties` — schema form (§6.5.6)
+### `additionalProperties`
 
-In addition to `additionalProperties: false` (already supported), the parser now
+In addition to `additionalProperties: false` (already supported), the parser
 handles a **schema-valued** `additionalProperties`. Properties not covered by
 `properties` or `patternProperties` must validate against this sub-schema.
 
@@ -272,64 +284,40 @@ regardless of whether `properties` is present. When neither `properties` nor
 pattern-matched keys are correctly excluded from the "additional" set before
 rejection.
 
-## `format` — `uri` and `urn`
+# Vocabularies for Semantic Content With `format`
 
-### `uri`
+## Foreword
 
-The `uri` format validator uses Dart's `Uri.tryParse()`. This is **intentionally
-lenient**: it accepts any string that Dart can parse as a URI reference,
-including relative references and bare words, as well as all registered URI
-schemes.
+The `format` keyword assigns a semantic meaning to string instances.
+`betto_schema` implements `format` as **assertion** behaviour: a string that
+does not satisfy the named format produces a `SchemaViolation`. Unrecognised
+format names are silently ignored (no violation).
 
-In particular, a valid URN (e.g. `urn:isbn:0451450523`) **is** a valid URI
-because `urn` is a registered URI scheme per RFC 3986. The `uri` validator
-therefore accepts both http URLs and valid URNs.
+## Defined Formats
 
-Callers who need to enforce absolute URIs should check `Uri.isAbsolute` or apply
-additional constraints beyond this format validator.
+The following formats align with JSON Schema Validation 2020-12 §7.3. Only
+formats with non-trivial validation logic or notable implementation decisions
+are described in detail; the remaining formats are listed with a brief summary.
 
-### `urn`
+### Dates, Times, and Duration
 
-The `urn` format validator uses `Urn.tryParse()` (the `Urn` class from
-`lib/src/formats/urn.dart`), which strictly validates URN syntax
-(`urn:<nid>:<nss>`). Plain http/https URLs and other non-URN strings are
-rejected.
+- **`date-time`** — ISO 8601 combined date-time string, validated by
+  `DateTime.tryParse`.
+- **`date`** — RFC 3339 full-date (`YYYY-MM-DD`). Overflow dates (e.g. month
+  13, day 32) are rejected by reformatting the parsed result and comparing it
+  against the input string.
+- **`time`** — RFC 3339 partial-time (`HH:mm:ss.SSS`), validated by
+  `DateFormat('HH:mm:ss.SSS').tryParseStrict`.
+- **`duration`** — ISO 8601 duration string (e.g. `P1Y2M3DT4H5M6S`), validated
+  by `Iso8601Duration.isValid`.
 
-## `format` — network address formats
+### Email Addresses
 
-### `ipv4`
+- **`email`** — a pragmatic subset of RFC 5322, validated by `Email.isValid`.
 
-The `ipv4` format validator accepts dotted-quad IPv4 address notation per RFC
-2673 §3.2. Each of the four decimal octets must be in the range 0–255.
+### Hostnames
 
-**Leading zeros are rejected.** `01.0.0.0` is invalid because a leading zero is
-ambiguous (octal vs. decimal interpretation). The validator uses a per-octet
-regex alternation (`25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d`) that enforces both the
-range constraint and the no-leading-zero constraint in a single pass.
-
-Addresses with fewer than four octets, more than four octets, or non-numeric
-content are rejected.
-
-### `ipv6`
-
-The `ipv6` format validator accepts IPv6 address strings per RFC 4291 §2.2. It
-is implemented without `dart:io` (`InternetAddress`) so that the validator works
-in browser/web environments where `dart:io` is unavailable.
-
-Supported forms:
-
-- Full eight-group form: `2001:db8:85a3:0:0:8a2e:370:7334`
-- All compressed (`::`) positions: `::`, `::1`, `1::`, `1::2`
-- IPv4-mapped tail: `::ffff:192.168.1.1`, `1:2:3:4:5:6:1.2.3.4`
-
-Hex groups are case-insensitive. Strings containing more than one `::`, more
-than eight groups in the full form, or hex groups with more than four digits are
-rejected.
-
-Zone IDs (`%eth0` suffixes) are not part of the RFC 4291 text representation
-grammar and are rejected by this validator.
-
-### `hostname`
+#### `hostname`
 
 The `hostname` format validator accepts DNS hostnames per RFC 1123 §2.1.
 
@@ -348,7 +336,7 @@ Rules:
 Underscores, spaces, `@`, and other non-alphanumeric/hyphen characters in labels
 are rejected.
 
-### `idn-hostname`
+#### `idn-hostname`
 
 The `idn-hostname` format validator accepts internationalized hostnames per
 RFC 5890. This is a **best-effort check**, not full IDNA 2008 / Punycode
@@ -368,9 +356,66 @@ What is validated:
   URL-reserved punctuation in the label.
 - Trailing dots are rejected (same as `hostname`).
 
-## `format` — URI reference formats
+### IP Addresses
 
-### `uri-reference`
+#### `ipv4`
+
+The `ipv4` format validator accepts dotted-quad IPv4 address notation per RFC
+2673 §3.2. Each of the four decimal octets must be in the range 0–255.
+
+**Leading zeros are rejected.** `01.0.0.0` is invalid because a leading zero is
+ambiguous (octal vs. decimal interpretation). The validator uses a per-octet
+regex alternation (`25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d`) that enforces both the
+range constraint and the no-leading-zero constraint in a single pass.
+
+Addresses with fewer than four octets, more than four octets, or non-numeric
+content are rejected.
+
+#### `ipv6`
+
+The `ipv6` format validator accepts IPv6 address strings per RFC 4291 §2.2. It
+is implemented without `dart:io` (`InternetAddress`) so that the validator works
+in browser/web environments where `dart:io` is unavailable.
+
+Supported forms:
+
+- Full eight-group form: `2001:db8:85a3:0:0:8a2e:370:7334`
+- All compressed (`::`) positions: `::`, `::1`, `1::`, `1::2`
+- IPv4-mapped tail: `::ffff:192.168.1.1`, `1:2:3:4:5:6:1.2.3.4`
+
+Hex groups are case-insensitive. Strings containing more than one `::`, more
+than eight groups in the full form, or hex groups with more than four digits are
+rejected.
+
+Zone IDs (`%eth0` suffixes) are not part of the RFC 4291 text representation
+grammar and are rejected by this validator.
+
+### Resource Identifiers
+
+- **`uuid`** — RFC 9562 UUID string, validated by `UuidValidation.isValidUUID`.
+
+#### `uri`
+
+The `uri` format validator uses Dart's `Uri.tryParse()`. This is **intentionally
+lenient**: it accepts any string that Dart can parse as a URI reference,
+including relative references and bare words, as well as all registered URI
+schemes.
+
+In particular, a valid URN (e.g. `urn:isbn:0451450523`) **is** a valid URI
+because `urn` is a registered URI scheme per RFC 3986. The `uri` validator
+therefore accepts both http URLs and valid URNs.
+
+Callers who need to enforce absolute URIs should check `Uri.isAbsolute` or apply
+additional constraints beyond this format validator.
+
+#### `urn`
+
+The `urn` format validator uses `Urn.tryParse()` (the `Urn` class from
+`lib/src/formats/urn.dart`), which strictly validates URN syntax
+(`urn:<nid>:<nss>`). Plain http/https URLs and other non-URN strings are
+rejected.
+
+#### `uri-reference`
 
 The `uri-reference` format validator accepts URI references per RFC 3986 §4.1. A
 URI reference is either an absolute URI (e.g. `https://example.com`) or a
@@ -386,9 +431,9 @@ The validator uses a structural approach:
 The empty string is a valid `uri-reference` (it refers to the current document).
 Percent-encoded spaces (e.g. `%20`) are valid; literal spaces are not.
 
-## `format` — JSON Pointer formats
+### JSON Pointers
 
-### `json-pointer`
+#### `json-pointer`
 
 The `json-pointer` format validator accepts JSON Pointer strings per RFC 6901.
 
@@ -404,7 +449,7 @@ invalid.
 
 Strings that do not begin with `/` (and are not the empty string) are invalid.
 
-### `relative-json-pointer`
+#### `relative-json-pointer`
 
 The `relative-json-pointer` format validator accepts Relative JSON Pointer
 strings per the IETF draft (bhutton/relative-json-pointer).
@@ -419,3 +464,105 @@ steps to walk up the document tree) followed by either:
 exactly `"0"`. So `01` and `00` are invalid, but `0` is valid.
 
 Examples: `0`, `1`, `0#`, `1#`, `0/foo`, `2/a/b`, `10/foo`.
+
+### `regex`
+
+The `regex` format validator accepts any string that compiles as a valid Dart
+`RegExp`. The check is performed by attempting `RegExp(value)` and catching
+`FormatException`.
+
+Note: JSON Schema 2020-12 specifies ECMA-262 regular expression syntax. Dart's
+`RegExp` uses a compatible but not identical dialect; minor differences in
+behaviour may exist for edge-case patterns.
+
+## Extension Formats
+
+The following format strings are **not** defined by the JSON Schema specification.
+They are project-specific extensions provided by `betto_schema` for use in
+Bettongia collection schemas. They are recognised by `StringFormatValidator` and
+the Layer 2 rule tree in the same way as the standard formats.
+
+### `hex-string`
+
+Accepts a string composed entirely of hexadecimal digits (`0`–`9`, `a`–`f`,
+`A`–`F`). An optional `0x` prefix is permitted and stripped before validation.
+Hex digits are **case-insensitive**: `DEADBEEF` and `deadbeef` are both valid.
+
+An empty string (after stripping the optional `0x` prefix) is **invalid**.
+
+### `digit-string`
+
+Accepts a string composed entirely of decimal digits (`0`–`9`). No leading-zero
+restriction is applied — `"007"` is valid. The string must be non-empty.
+
+This is distinct from the `integer` type, which validates a numeric JSON value.
+`digit-string` validates a **string** whose characters are all decimal digits —
+useful for numeric identifiers such as barcodes, phone numbers, and EAN codes
+where the value is always stored as a string.
+
+### `roman-numeral`
+
+Accepts a string composed entirely of recognised Roman numeral characters
+(`I`, `V`, `X`, `L`, `C`, `D`, `M`, case-insensitive). The string must be
+non-empty.
+
+This is a **structural** check only: it verifies that every character is a valid
+Roman numeral symbol. Canonical subtractive ordering (`IV`, `IX`, etc.) is **not**
+enforced — additive repetition such as `IIII` is accepted as `4`. The
+apostrophus and vinculum extended notations and fractional values are not
+supported.
+
+### `isbn-13`
+
+Accepts a 13-digit International Standard Book Number (ISBN-13) per the ISBN
+Users' Manual. The input may contain hyphens or spaces as separators (they are
+stripped before validation), but the total number of extracted digits must be
+exactly 13.
+
+Validation rules:
+
+- The GS1 prefix must be `978` or `979`.
+- The check digit (digit 13) must satisfy the weighted modulo-10 calculation
+  defined in the ISBN Users' Manual (weights alternating `1` and `3` over
+  digits 1–12).
+
+Inputs longer than 22 characters (before digit extraction) are rejected to
+guard against pathologically long strings.
+
+### `doi`
+
+Accepts a Digital Object Identifier (DOI) string per the
+[DOI Handbook](https://www.doi.org/the-identifier/resources/handbook/). A DOI
+has the form:
+
+```
+<prefix>/<suffix>
+```
+
+where the **prefix** has the form `<directory-indicator>.<registrant-code>`
+(the directory indicator and each registrant-code segment must be all-digit
+strings, and segments are separated by `.`), and the **suffix** is any non-empty
+string. Both prefix and suffix must be non-empty, and the `/` separator must be
+present.
+
+DOI names are **case-insensitive** per DOI Handbook §2.4. The string form is
+normalised to uppercase in the `DOI` class, but `isValid` accepts any case.
+
+### `lang`
+
+Accepts a language tag per [RFC 5646](https://www.rfc-editor.org/info/rfc5646).
+Three tag forms are recognised:
+
+- **`langtag`** — the normal form: an ISO 639 language code optionally extended
+  with script (ISO 15924), region (ISO 3166-1 alpha-2 or UN M.49), and variant
+  subtags, all separated by `-`.
+- **`privateuse`** — begins with `x-` followed by at least one private subtag.
+- **`grandfathered`** — legacy tags listed in the RFC (e.g. `i-klingon`,
+  `art-lojban`). These are deprecated in favour of new subtags but remain valid.
+
+Language tags are **case-insensitive** per RFC 5646. The `lang` format validator
+accepts any casing; the `LanguageTag` class normalises output to the recommended
+conventions (lowercase language, uppercase region, Title Case script).
+
+Extended language subtags (e.g. `zh-cmn-Hans-CN`) are supported per RFC 5646
+§2.2.2.
