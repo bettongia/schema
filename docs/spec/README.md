@@ -5,7 +5,7 @@ toc-title: "Contents"
 ...
 
 - **Package:** `betto_schema`
-- **Version:** 0.1.0-dev.1
+- **Version:** 0.1.0
 - **Dart SDK:** ^3.12.0
 
 # Purpose and scope
@@ -303,8 +303,8 @@ are described in detail; the remaining formats are listed with a brief summary.
 
 - **`date-time`** — ISO 8601 combined date-time string, validated by
   `DateTime.tryParse`.
-- **`date`** — RFC 3339 full-date (`YYYY-MM-DD`). Overflow dates (e.g. month
-  13, day 32) are rejected by reformatting the parsed result and comparing it
+- **`date`** — RFC 3339 full-date (`YYYY-MM-DD`). Overflow dates (e.g. month 13,
+  day 32) are rejected by reformatting the parsed result and comparing it
   against the input string.
 - **`time`** — RFC 3339 partial-time (`HH:mm:ss.SSS`), validated by
   `DateFormat('HH:mm:ss.SSS').tryParseStrict`.
@@ -477,10 +477,11 @@ behaviour may exist for edge-case patterns.
 
 ## Extension Formats
 
-The following format strings are **not** defined by the JSON Schema specification.
-They are project-specific extensions provided by `betto_schema` for use in
-Bettongia collection schemas. They are recognised by `StringFormatValidator` and
-the Layer 2 rule tree in the same way as the standard formats.
+The following format strings are **not** defined by the JSON Schema
+specification. They are project-specific extensions provided by `betto_schema`
+for use in Bettongia collection schemas. They are recognised by
+`StringFormatValidator` and the Layer 2 rule tree in the same way as the
+standard formats.
 
 ### `hex-string`
 
@@ -502,13 +503,12 @@ where the value is always stored as a string.
 
 ### `roman-numeral`
 
-Accepts a string composed entirely of recognised Roman numeral characters
-(`I`, `V`, `X`, `L`, `C`, `D`, `M`, case-insensitive). The string must be
-non-empty.
+Accepts a string composed entirely of recognised Roman numeral characters (`I`,
+`V`, `X`, `L`, `C`, `D`, `M`, case-insensitive). The string must be non-empty.
 
 This is a **structural** check only: it verifies that every character is a valid
-Roman numeral symbol. Canonical subtractive ordering (`IV`, `IX`, etc.) is **not**
-enforced — additive repetition such as `IIII` is accepted as `4`. The
+Roman numeral symbol. Canonical subtractive ordering (`IV`, `IX`, etc.) is
+**not** enforced — additive repetition such as `IIII` is accepted as `4`. The
 apostrophus and vinculum extended notations and fractional values are not
 supported.
 
@@ -523,11 +523,11 @@ Validation rules:
 
 - The GS1 prefix must be `978` or `979`.
 - The check digit (digit 13) must satisfy the weighted modulo-10 calculation
-  defined in the ISBN Users' Manual (weights alternating `1` and `3` over
-  digits 1–12).
+  defined in the ISBN Users' Manual (weights alternating `1` and `3` over digits
+  1–12).
 
-Inputs longer than 22 characters (before digit extraction) are rejected to
-guard against pathologically long strings.
+Inputs longer than 22 characters (before digit extraction) are rejected to guard
+against pathologically long strings.
 
 ### `doi`
 
@@ -539,11 +539,10 @@ has the form:
 <prefix>/<suffix>
 ```
 
-where the **prefix** has the form `<directory-indicator>.<registrant-code>`
-(the directory indicator and each registrant-code segment must be all-digit
-strings, and segments are separated by `.`), and the **suffix** is any non-empty
-string. Both prefix and suffix must be non-empty, and the `/` separator must be
-present.
+where the **prefix** has the form `<directory-indicator>.<registrant-code>` (the
+directory indicator and each registrant-code segment must be all-digit strings,
+and segments are separated by `.`), and the **suffix** is any non-empty string.
+Both prefix and suffix must be non-empty, and the `/` separator must be present.
 
 DOI names are **case-insensitive** per DOI Handbook §2.4. The string form is
 normalised to uppercase in the `DOI` class, but `isValid` accepts any case.

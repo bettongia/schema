@@ -22,8 +22,8 @@ dependencies:
   collection: ^1.19.1
   intl: ^0.20.2
   uuid: ^4.5.3
-  betto_common: ^0.1.0-dev.1
-  betto_abnf: ^0.1.0-dev.1
+  betto_common: ^0.1.0-dev.2
+  betto_abnf: ^0.1.0-dev.2
 
 dev_dependencies:
   lints: ^6.0.0

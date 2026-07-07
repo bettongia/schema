@@ -2,6 +2,9 @@
 
 ## 0.1.0-dev.2
 
+- Removed the redundant `Range` class as it was a replica of the one in
+  `betto_common`.
+
 ## 0.1.0-dev.1
 
 Initial development release. Pure Dart JSON Schema validation primitives aligned
