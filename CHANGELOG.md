@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-dev.3
+
+In progress
+
 ## 0.1.0-dev.2
 
 - Removed the redundant `Range` class as it was a replica of the one in
